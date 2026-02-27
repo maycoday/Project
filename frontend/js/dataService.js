@@ -43,6 +43,41 @@
       if(error) throw error;
       return data || [];
     }
+
+    async fetchAllComplaints(limit=500){
+      if(!this.enabled) return [];
+      const {data, error} = await this.client.from(TABLE)
+        .select('id, created_at, authorities, review_status')
+        .order('created_at',{ascending:false})
+        .limit(limit);
+      if(error) throw error;
+      return data || [];
+    }
+
+    async fetchComplaintsByAuthority(authority, limit=250){
+      if(!this.enabled) return [];
+      const {data, error} = await this.client.from(TABLE)
+        .select('*')
+        .contains('authorities', [authority])
+        .order('created_at',{ascending:false})
+        .limit(limit);
+      if(error) throw error;
+      return data || [];
+    }
+
+    async updateComplaintStatus(complaintId, status, reviewedBy){
+      if(!this.enabled) throw new Error('Supabase not enabled');
+      const update = {
+        review_status: status,
+        reviewed_by: reviewedBy,
+        reviewed_at: new Date().toISOString()
+      };
+      const {error} = await this.client.from(TABLE)
+        .update(update)
+        .eq('id', complaintId);
+      if(error) throw error;
+      return {success:true};
+    }
   }
 
   global.AawaazDataService = AawaazDataService;

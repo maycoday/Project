@@ -15,6 +15,8 @@ const S = {
   currentMode: 'user',
   simStep: 2,
   simAuthTab: 'HR',
+  selectedAuthority: null,
+  authorityComplaints: [],
 };
 
 // ============================
@@ -192,16 +194,22 @@ function setMode(mode){
   S.currentMode = mode;
   document.getElementById('userMode').style.display = mode==='user'?'block':'none';
   document.getElementById('simMode').style.display = mode==='sim'?'block':'none';
+  document.getElementById('authorityMode').style.display = mode==='authority'?'block':'none';
   document.getElementById('govNavUser').style.display = mode==='user'?'flex':'none';
   document.getElementById('govNavSim').style.display = mode==='sim'?'flex':'none';
+  document.getElementById('govNavAuth').style.display = mode==='authority'?'flex':'none';
   document.getElementById('btnUser').classList.toggle('active', mode==='user');
   document.getElementById('btnSim').classList.toggle('active', mode==='sim');
+  document.getElementById('btnAuth').classList.toggle('active', mode==='authority');
   if(mode==='sim'){
     // Update sim fields from current state
     if(S.aesHex) document.getElementById('simAesKey').textContent = S.aesHex;
     if(S.token) document.getElementById('simToken').textContent = S.token;
     updateSimPayload();
     updateSimAuthPanel();
+  }
+  if(mode==='authority'){
+    loadAuthorityCounts();
   }
 }
 
@@ -211,6 +219,9 @@ function detectStartupMode(){
   const hashMode = (window.location.hash||'').replace('#','').toLowerCase();
   if((paramMode && paramMode.toLowerCase()==='sim') || hashMode==='sim'){
     return 'sim';
+  }
+  if((paramMode && paramMode.toLowerCase()==='authority') || hashMode==='authority'){
+    return 'authority';
   }
   return 'user';
 }
@@ -723,6 +734,252 @@ function handleFile(input){
       status.textContent='✓ Metadata stripped — GPS, device info, timestamps removed. File ready for encrypted upload.';
       addLog('EXIF metadata stripped from attachment','success');
     },800);
+  }
+}
+
+// ============================
+// AUTHORITY MODE
+// ============================
+
+/** Show authority sub-pages (review / stats) */
+function showAuthPage(id){
+  document.querySelectorAll('#authorityMode .page').forEach(p=>{
+    p.style.display = 'none';
+    p.classList.remove('active');
+  });
+  const target = document.getElementById('auth-'+id);
+  if(target){
+    target.style.display = 'block';
+    target.classList.add('active');
+  }
+  // Update nav active state
+  document.querySelectorAll('#govNavAuth .gov-nav-link').forEach((l,i)=>{
+    l.classList.toggle('active', (id==='review'&&i===0)||(id==='stats'&&i===1));
+  });
+  // Refresh stats when switching to stats tab
+  if(id==='stats' && S.selectedAuthority) refreshAuthorityStats();
+}
+
+/** Load complaint counts for all three authority cards */
+async function loadAuthorityCounts(){
+  try{
+    const allComplaints = await window.AawaazData.fetchAllComplaints();
+    ['HR','ICC','NGO'].forEach(auth=>{
+      const count = allComplaints.filter(c=>c.authorities && c.authorities.includes(auth)).length;
+      const el = document.getElementById(auth.toLowerCase()+'Count');
+      if(el) el.textContent = count + ' complaint'+(count!==1?'s':'');
+    });
+  }catch(e){
+    console.warn('[Aawaaz] Could not load authority counts:', e);
+  }
+}
+
+/** Select an authority (HR / ICC / NGO) and load its complaints */
+async function selectAuthority(auth){
+  S.selectedAuthority = auth;
+
+  // Highlight selected card
+  ['HR','ICC','NGO'].forEach(a=>{
+    const card = document.getElementById('authCard'+a);
+    if(card){
+      card.style.borderColor = a===auth ? 'var(--navy)' : 'var(--border)';
+      card.style.background  = a===auth ? 'var(--cream)' : 'var(--white)';
+    }
+  });
+
+  // Update header
+  const label = document.getElementById('authCurrent');
+  if(label) label.textContent = auth + ' Authority';
+
+  const listWrap = document.getElementById('authComplaintsList');
+  if(listWrap) listWrap.style.display = 'block';
+
+  const selectedLabel = document.getElementById('selectedAuthLabel');
+  if(selectedLabel) selectedLabel.textContent = auth;
+
+  // Show loading
+  const listEl = document.getElementById('complaintsList');
+  if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted)">Loading complaints...</div>';
+
+  try{
+    const complaints = await window.AawaazData.fetchComplaintsByAuthority(auth);
+    S.authorityComplaints = complaints;
+    renderAuthorityComplaints(complaints, auth);
+    updateAuthorityCounts(complaints);
+  }catch(e){
+    console.error('[Aawaaz] Error fetching complaints:', e);
+    if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--danger)">Error loading complaints. Check console for details.</div>';
+  }
+}
+
+/** Render complaint cards in the authority review list */
+function renderAuthorityComplaints(complaints, auth){
+  const listEl = document.getElementById('complaintsList');
+  if(!listEl) return;
+
+  if(!complaints || complaints.length === 0){
+    listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:32px;font-style:italic">No complaints assigned to '+esc(auth)+' authority yet.</div>';
+    return;
+  }
+
+  listEl.innerHTML = complaints.map((c, idx) => {
+    const date = new Date(c.created_at).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const ref = c.reference || '—';
+    const hint = c.token_hint || '—';
+    const status = c.review_status || 'pending';
+    const statusColor = status==='resolved' ? 'var(--green)' : status==='reviewed' ? 'var(--navy)' : 'var(--warn)';
+    const statusLabel = status.charAt(0).toUpperCase()+status.slice(1);
+    const meta = c.metadata || {};
+    const severity = meta.severity || '—';
+    const category = meta.category || '—';
+    const auths = (c.authorities||[]).join(', ');
+    const cipherPreview = c.ciphertext_b64 ? c.ciphertext_b64.slice(0,40)+'…' : '—';
+
+    return `
+      <div style="border:1px solid var(--border);border-radius:2px;margin-bottom:12px;overflow:hidden" id="complaint-${c.id}">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--cream);border-bottom:1px solid var(--border)">
+          <div>
+            <span style="font-size:12px;font-weight:700;color:var(--navy)">${esc(ref)}</span>
+            <span style="font-size:10px;color:var(--muted);margin-left:8px">${esc(date)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:10px;font-weight:600;color:${statusColor};border:1px solid ${statusColor};padding:2px 8px;border-radius:2px;text-transform:uppercase;letter-spacing:0.04em">${esc(statusLabel)}</span>
+          </div>
+        </div>
+        <div style="padding:12px 16px">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:11px;margin-bottom:12px">
+            <div><span style="color:var(--muted)">Token Hint:</span> <strong>${esc(hint)}</strong></div>
+            <div><span style="color:var(--muted)">Severity:</span> <strong>${esc(severity)}</strong></div>
+            <div><span style="color:var(--muted)">Category:</span> <strong>${esc(category)}</strong></div>
+            <div><span style="color:var(--muted)">Authorities:</span> <strong>${esc(auths)}</strong></div>
+          </div>
+          <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:8px 12px;margin-bottom:12px">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px">Encrypted Data (AES-256-GCM)</div>
+            <div style="font-family:var(--mono);font-size:10px;word-break:break-all;color:var(--navy)">${esc(cipherPreview)}</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            ${status==='pending' ? `<button onclick="markReviewed('${c.id}')" style="font-size:10px;padding:6px 14px;background:var(--navy);color:var(--white);border:none;border-radius:2px;cursor:pointer;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Mark Reviewed</button>` : ''}
+            ${status==='reviewed' ? `<button onclick="markResolved('${c.id}')" style="font-size:10px;padding:6px 14px;background:var(--green);color:var(--white);border:none;border-radius:2px;cursor:pointer;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Mark Resolved</button>` : ''}
+            ${status==='resolved' ? `<span style="font-size:10px;color:var(--green);font-weight:600">✓ Resolved</span>` : ''}
+            <button onclick="viewComplaintDetail('${c.id}')" style="font-size:10px;padding:6px 14px;background:transparent;color:var(--navy);border:1px solid var(--navy);border-radius:2px;cursor:pointer;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">View Details</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/** Update the count displays (total, reviewed, pending) */
+function updateAuthorityCounts(complaints){
+  const total = complaints.length;
+  const reviewed = complaints.filter(c=>(c.review_status==='reviewed'||c.review_status==='resolved')).length;
+  const resolved = complaints.filter(c=>c.review_status==='resolved').length;
+  const pending = total - reviewed;
+
+  const el = id => document.getElementById(id);
+  if(el('totalComplaintsCount')) el('totalComplaintsCount').textContent = total;
+  if(el('reviewedCount')) el('reviewedCount').textContent = reviewed;
+  if(el('pendingCount')) el('pendingCount').textContent = pending;
+}
+
+/** Mark a complaint as reviewed */
+async function markReviewed(complaintId){
+  try{
+    await window.AawaazData.updateComplaintStatus(complaintId, 'reviewed', S.selectedAuthority);
+    addLog('Complaint '+complaintId+' marked as reviewed by '+S.selectedAuthority,'success');
+    // Refresh the list
+    if(S.selectedAuthority) await selectAuthority(S.selectedAuthority);
+  }catch(e){
+    console.error('[Aawaaz] Error updating status:', e);
+    alert('Failed to update complaint status. Check console.');
+  }
+}
+
+/** Mark a complaint as resolved */
+async function markResolved(complaintId){
+  try{
+    await window.AawaazData.updateComplaintStatus(complaintId, 'resolved', S.selectedAuthority);
+    addLog('Complaint '+complaintId+' resolved by '+S.selectedAuthority,'success');
+    if(S.selectedAuthority) await selectAuthority(S.selectedAuthority);
+  }catch(e){
+    console.error('[Aawaaz] Error updating status:', e);
+    alert('Failed to update complaint status. Check console.');
+  }
+}
+
+/** View full complaint detail (expand in place) */
+function viewComplaintDetail(complaintId){
+  const c = S.authorityComplaints.find(x=>String(x.id)===String(complaintId));
+  if(!c) return;
+  const el = document.getElementById('complaint-'+complaintId);
+  if(!el) return;
+
+  const meta = c.metadata || {};
+  const detail = `
+    <div style="padding:12px 16px;border-top:1px solid var(--border);background:var(--bg)">
+      <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">Full Details</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px">
+        <div><span style="color:var(--muted)">ID:</span> ${esc(String(c.id))}</div>
+        <div><span style="color:var(--muted)">Reference:</span> ${esc(c.reference||'—')}</div>
+        <div><span style="color:var(--muted)">Created:</span> ${esc(new Date(c.created_at).toLocaleString('en-IN'))}</div>
+        <div><span style="color:var(--muted)">Review Status:</span> ${esc(c.review_status||'pending')}</div>
+        <div><span style="color:var(--muted)">Reviewed By:</span> ${esc(c.reviewed_by||'—')}</div>
+        <div><span style="color:var(--muted)">Reviewed At:</span> ${esc(c.reviewed_at ? new Date(c.reviewed_at).toLocaleString('en-IN') : '—')}</div>
+        <div style="grid-column:1/-1"><span style="color:var(--muted)">IV (Base64):</span> <span style="font-family:var(--mono);font-size:10px">${esc(c.iv_b64||'—')}</span></div>
+        <div style="grid-column:1/-1"><span style="color:var(--muted)">Metadata:</span> <pre style="font-size:10px;margin:4px 0;white-space:pre-wrap;font-family:var(--mono);color:var(--navy)">${esc(JSON.stringify(meta,null,2))}</pre></div>
+      </div>
+      <button onclick="this.parentElement.remove()" style="margin-top:8px;font-size:10px;padding:4px 12px;background:var(--border);border:none;border-radius:2px;cursor:pointer">Collapse</button>
+    </div>`;
+
+  // Remove existing detail if already expanded
+  const existing = el.querySelector('[data-detail]');
+  if(existing){ existing.remove(); return; }
+
+  const div = document.createElement('div');
+  div.setAttribute('data-detail','1');
+  div.innerHTML = detail;
+  el.appendChild(div);
+}
+
+/** Refresh authority stats page */
+function refreshAuthorityStats(){
+  const complaints = S.authorityComplaints || [];
+  const total = complaints.length;
+  const pending = complaints.filter(c=>!c.review_status || c.review_status==='pending').length;
+  const resolved = complaints.filter(c=>c.review_status==='resolved').length;
+
+  const el = id => document.getElementById(id);
+  if(el('statTotal')) el('statTotal').textContent = total;
+  if(el('statPending')) el('statPending').textContent = pending;
+  if(el('statResolved')) el('statResolved').textContent = resolved;
+
+  // Calculate average resolution time
+  const resolvedComplaints = complaints.filter(c=>c.review_status==='resolved' && c.reviewed_at && c.created_at);
+  if(resolvedComplaints.length > 0){
+    const totalMs = resolvedComplaints.reduce((sum,c)=>{
+      return sum + (new Date(c.reviewed_at) - new Date(c.created_at));
+    },0);
+    const avgMs = totalMs / resolvedComplaints.length;
+    const avgDays = Math.round(avgMs / (1000*60*60*24)*10)/10;
+    if(el('statAvgTime')) el('statAvgTime').textContent = avgDays < 1 ? '<1 day' : avgDays+'d';
+  } else {
+    if(el('statAvgTime')) el('statAvgTime').textContent = '—';
+  }
+
+  // Render recent activity
+  const actEl = el('authActivity');
+  if(actEl){
+    const reviewed = complaints.filter(c=>c.reviewed_at).sort((a,b)=>new Date(b.reviewed_at)-new Date(a.reviewed_at)).slice(0,5);
+    if(reviewed.length>0){
+      actEl.innerHTML = reviewed.map(c=>{
+        const date = new Date(c.reviewed_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+        return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+          <span style="font-weight:600;color:var(--navy)">${esc(c.reference||c.id)}</span>
+          <span>${esc(c.review_status||'reviewed')} · ${esc(date)}</span>
+        </div>`;
+      }).join('');
+    } else {
+      actEl.innerHTML = '<div style="text-align:center;padding:16px;font-style:italic">No activity yet</div>';
+    }
   }
 }
 

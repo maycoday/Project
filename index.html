@@ -25,6 +25,7 @@
     <div class="mode-toggle">
       <button class="mode-btn active" id="btnUser" onclick="setMode('user')">User Portal</button>
       <button class="mode-btn" id="btnSim" onclick="setMode('sim')">Simulation</button>
+      <button class="mode-btn" id="btnAuth" onclick="setMode('authority')">Authority</button>
       <button class="mode-btn" id="btnPattern" onclick="goToPatternPage()">Pattern Detection</button>
     </div>
   </div>
@@ -67,6 +68,10 @@
     <div class="gov-nav-link active" onclick="showSimPage('live')">Live Simulation</div>
     <div class="gov-nav-link" onclick="showSimPage('flow')">System Flow</div>
     <div class="gov-nav-link" onclick="showSimPage('security')">Security Proofs</div>
+  </div>
+  <div class="gov-nav" id="govNavAuth" style="display:none">
+    <div class="gov-nav-link active" onclick="showAuthPage('review')">Review Complaints</div>
+    <div class="gov-nav-link" onclick="showAuthPage('stats')">Authority Stats</div>
   </div>
 </div>
 
@@ -819,9 +824,114 @@
 
 </div><!-- /simMode -->
 
+<!-- ============================================================ -->
+<!--  AUTHORITY MODE                                              -->
+<!-- ============================================================ -->
+<div id="authorityMode" style="display:none">
+
+  <!-- AUTHORITY SELECTION -->
+  <div id="auth-review" class="page active">
+    <div class="page-band">
+      <div>
+        <div class="page-band-title">Authority <span>Dashboard</span></div>
+        <div class="page-band-sub">Review encrypted complaints filed with your organization.</div>
+      </div>
+      <div class="page-band-meta">
+        <div id="authCurrent">Select Authority</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- AUTHORITY SELECTOR -->
+      <div style="margin-bottom:24px">
+        <div style="font-size:13px;font-weight:700;color:var(--navy);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:12px">Select Your Authority</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          <div class="auth-sel hr" id="authCardHR" onclick="selectAuthority('HR')" style="cursor:pointer;padding:16px;text-align:center;border:2px solid var(--border)">
+            <div style="font-size:32px;margin-bottom:8px">👨‍💼</div>
+            <div style="font-size:13px;font-weight:700;color:var(--navy)">HR Department</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Human Resources</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:6px" id="hrCount">0 complaints</div>
+          </div>
+          <div class="auth-sel icc" id="authCardICC" onclick="selectAuthority('ICC')" style="cursor:pointer;padding:16px;text-align:center;border:2px solid var(--border)">
+            <div style="font-size:32px;margin-bottom:8px">⚖️</div>
+            <div style="font-size:13px;font-weight:700;color:var(--navy)">IC Committee</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">POSH Act Compliance</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:6px" id="iccCount">0 complaints</div>
+          </div>
+          <div class="auth-sel ngo" id="authCardNGO" onclick="selectAuthority('NGO')" style="cursor:pointer;padding:16px;text-align:center;border:2px solid var(--border)">
+            <div style="font-size:32px;margin-bottom:8px">🤝</div>
+            <div style="font-size:13px;font-weight:700;color:var(--navy)">NGO Partner</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Independent Review</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:6px" id="ngoCount">0 complaints</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPLAINTS LIST -->
+      <div id="authComplaintsList" style="display:none">
+        <div style="background:var(--white);border:1px solid var(--border);border-radius:2px;margin-bottom:20px">
+          <div style="background:var(--cream);padding:16px;border-bottom:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:700;color:var(--navy);letter-spacing:0.04em;text-transform:uppercase">
+              <span id="selectedAuthLabel">---</span> - Complaints to Review
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">
+              Total: <strong id="totalComplaintsCount">0</strong> | Reviewed: <strong id="reviewedCount">0</strong> | Pending: <strong id="pendingCount">0</strong>
+            </div>
+          </div>
+          <div id="complaintsList" style="padding:16px">
+            <div style="text-align:center;color:var(--muted);padding:32px;font-style:italic">
+              No complaints assigned to this authority yet.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- AUTHORITY STATS -->
+  <div id="auth-stats" class="page" style="display:none">
+    <div class="page-band">
+      <div>
+        <div class="page-band-title">Authority <span>Statistics</span></div>
+        <div class="page-band-sub">Complaint resolution metrics and trends.</div>
+      </div>
+    </div>
+    <div class="content">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+        <div style="background:var(--white);border:1px solid var(--border);border-radius:2px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--navy)" id="statTotal">0</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.06em">Total Assigned</div>
+        </div>
+        <div style="background:var(--white);border:1px solid var(--border);border-radius:2px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--danger)" id="statPending">0</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.06em">Pending Review</div>
+        </div>
+        <div style="background:var(--white);border:1px solid var(--border);border-radius:2px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--green)" id="statResolved">0</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.06em">Resolved</div>
+        </div>
+        <div style="background:var(--white);border:1px solid var(--border);border-radius:2px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--navy)" id="statAvgTime">—</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.06em">Avg. Time</div>
+        </div>
+      </div>
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:2px;padding:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--navy);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:12px">
+          Recent Activity
+        </div>
+        <div id="authActivity" style="font-size:11px;color:var(--muted)">
+          <div style="text-align:center;padding:16px;font-style:italic">No activity yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /authorityMode -->
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
-<script src="js/supabaseConfig.js"></script>
-<script src="js/dataService.js"></script>
-<script src="frontend/js/portal.js"><\/script>
+<script src="frontend/js/supabaseConfig.js"></script>
+<script src="frontend/js/dataService.js"></script>
+<script src="frontend/js/portal.js"></script>
 </body>
 </html>
