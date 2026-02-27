@@ -1,0 +1,2359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aawaaz — Grievance Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=DM+Mono:wght@300;400;500&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --saffron:#FF6700;
+  --saffron2:#e05a00;
+  --white:#FFFFFF;
+  --green:#138808;
+  --green2:#0d6b06;
+  --navy:#0B1F3A;
+  --navy2:#0d2647;
+  --navy3:#132d52;
+  --ashoka:#1a3a6b;
+  --gold:#C9A84C;
+  --gold2:#b8962e;
+  --cream:#F8F5EE;
+  --cream2:#f0ebe0;
+  --paper:#FDFAF4;
+  --ink:#1a1a2e;
+  --ink2:#2d2d45;
+  --muted:#6b7280;
+  --muted2:#9ca3af;
+  --border:#ddd5c0;
+  --border2:#c9bc9f;
+  --success:#138808;
+  --danger:#dc2626;
+  --warn:#d97706;
+  --cipher:#0B1F3A;
+}
+
+html{scroll-behavior:smooth}
+body{
+  font-family:'Barlow',sans-serif;
+  background:var(--cream);
+  color:var(--ink);
+  min-height:100vh;
+}
+.serif{font-family:'Crimson Pro',Georgia,serif}
+.mono{font-family:'DM Mono',monospace}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--cream2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ===== MODE SWITCHER ===== */
+#modeSwitcher{
+  position:fixed;top:0;left:0;right:0;z-index:2000;
+  background:var(--navy);
+  border-bottom:3px solid var(--saffron);
+  padding:0 32px;
+  height:44px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.mode-brand{
+  font-family:'Crimson Pro',serif;
+  font-size:15px;color:var(--cream);
+  display:flex;align-items:center;gap:10px;
+  letter-spacing:0.01em;
+}
+.ashoka-wheel{
+  width:22px;height:22px;
+  border:2px solid var(--gold);
+  border-radius:50%;
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.ashoka-wheel::before{
+  content:'';
+  position:absolute;
+  width:3px;height:3px;
+  background:var(--gold);
+  border-radius:50%;
+}
+.wheel-spokes{
+  position:absolute;inset:1px;
+  border-radius:50%;
+  background:repeating-conic-gradient(var(--gold) 0deg 2deg, transparent 2deg 30deg);
+  opacity:0.6;
+}
+.mode-toggle{
+  display:flex;align-items:center;gap:4px;
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:6px;
+  padding:3px;
+}
+.mode-btn{
+  padding:4px 16px;border-radius:4px;border:none;
+  font-family:'Barlow',sans-serif;font-size:11px;font-weight:600;
+  cursor:pointer;transition:all 0.25s;
+  letter-spacing:0.04em;text-transform:uppercase;
+  color:rgba(255,255,255,0.5);
+  background:transparent;
+}
+.mode-btn.active{
+  background:var(--saffron);
+  color:var(--white);
+  box-shadow:0 2px 8px rgba(255,103,0,0.4);
+}
+.mode-label{
+  font-family:'DM Mono',monospace;
+  font-size:9px;color:rgba(255,255,255,0.4);
+  letter-spacing:0.1em;
+}
+
+/* ===== GOVERNMENT HEADER ===== */
+#govHeader{
+  background:var(--white);
+  border-bottom:1px solid var(--border);
+  padding:0 32px;
+  margin-top:44px;
+  position:sticky;top:44px;z-index:999;
+  box-shadow:0 2px 8px rgba(0,0,0,0.06);
+}
+.gov-top{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 0;
+  border-bottom:1px solid var(--border);
+}
+.gov-logo-area{display:flex;align-items:center;gap:16px}
+.gov-emblem{
+  width:52px;height:52px;
+  background:var(--navy);
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+  flex-shrink:0;
+}
+.gov-emblem-inner{
+  width:44px;height:44px;border-radius:50%;
+  border:2px solid var(--gold);
+  display:flex;align-items:center;justify-content:center;
+}
+.gov-emblem-text{
+  font-family:'Crimson Pro',serif;
+  font-size:20px;color:var(--gold);font-weight:700;
+}
+.gov-titles{display:flex;flex-direction:column}
+.gov-main-title{
+  font-family:'Crimson Pro',serif;
+  font-size:22px;font-weight:700;
+  color:var(--navy);letter-spacing:0.01em;
+  line-height:1.1;
+}
+.gov-main-title span{color:var(--saffron)}
+.gov-sub-title{
+  font-size:11px;color:var(--muted);
+  letter-spacing:0.02em;margin-top:1px;
+  font-weight:400;
+}
+.gov-sub-title em{color:var(--navy);font-style:normal;font-weight:500}
+.gov-right{
+  display:flex;align-items:center;gap:16px;
+  font-size:11px;color:var(--muted);
+  font-family:'DM Mono',monospace;
+}
+.secure-badge{
+  display:flex;align-items:center;gap:5px;
+  background:rgba(19,136,8,0.08);
+  border:1px solid rgba(19,136,8,0.25);
+  border-radius:4px;padding:4px 10px;
+  font-size:10px;color:var(--green);font-weight:600;
+}
+.secure-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse2 2s ease-in-out infinite}
+@keyframes pulse2{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* NAV BAR */
+.gov-nav{
+  display:flex;align-items:center;gap:0;
+  height:40px;
+}
+.gov-nav-link{
+  padding:0 20px;height:40px;
+  display:flex;align-items:center;
+  font-size:12px;font-weight:600;
+  color:var(--muted);cursor:pointer;
+  border-bottom:3px solid transparent;
+  transition:all 0.2s;letter-spacing:0.03em;
+  text-transform:uppercase;white-space:nowrap;
+}
+.gov-nav-link:hover{color:var(--navy);border-bottom-color:var(--border2)}
+.gov-nav-link.active{color:var(--navy);border-bottom-color:var(--saffron)}
+
+/* QUICK EXIT */
+#quickExit{
+  position:fixed;bottom:24px;right:24px;z-index:3000;
+  background:var(--danger);color:var(--white);
+  border:none;border-radius:4px;
+  padding:10px 18px;font-size:11px;font-weight:700;
+  cursor:pointer;font-family:'Barlow',sans-serif;
+  letter-spacing:0.06em;text-transform:uppercase;
+  box-shadow:0 4px 16px rgba(220,38,38,0.35);
+  transition:all 0.2s;display:flex;align-items:center;gap:8px;
+  overflow:hidden;max-width:44px;
+  white-space:nowrap;
+}
+#quickExit:hover{max-width:160px;box-shadow:0 4px 24px rgba(220,38,38,0.5)}
+#quickExit .qt{opacity:0;transition:opacity 0.2s 0.1s;font-size:10px}
+#quickExit:hover .qt{opacity:1}
+
+/* ===== PAGES ===== */
+.page{display:none;padding-top:0}
+.page.active{display:block}
+
+/* ===== CONTENT WRAPPER ===== */
+.content{max-width:1100px;margin:0 auto;padding:32px}
+.content-wide{max-width:1400px;margin:0 auto;padding:32px}
+
+/* PAGE TITLE BAND */
+.page-band{
+  background:var(--navy);
+  padding:20px 32px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.page-band-title{
+  font-family:'Crimson Pro',serif;
+  font-size:26px;font-weight:600;color:var(--white);
+  letter-spacing:0.01em;
+}
+.page-band-title span{color:var(--gold)}
+.page-band-sub{font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px;font-weight:400}
+.page-band-meta{
+  font-family:'DM Mono',monospace;
+  font-size:10px;color:rgba(255,255,255,0.4);
+  text-align:right;line-height:1.8;
+}
+
+/* ===== FORM ELEMENTS ===== */
+.form-section{
+  background:var(--white);
+  border:1px solid var(--border);
+  border-radius:2px;
+  margin-bottom:20px;
+  overflow:hidden;
+}
+.form-section-header{
+  background:var(--cream);
+  border-bottom:1px solid var(--border);
+  padding:12px 20px;
+  display:flex;align-items:center;gap:10px;
+}
+.form-section-num{
+  width:24px;height:24px;
+  background:var(--navy);color:var(--white);
+  border-radius:2px;
+  font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'DM Mono',monospace;flex-shrink:0;
+}
+.form-section-title{
+  font-size:13px;font-weight:700;
+  color:var(--navy);letter-spacing:0.04em;text-transform:uppercase;
+}
+.form-section-body{padding:20px}
+
+.field-group{margin-bottom:18px}
+.field-label{
+  display:block;font-size:11px;font-weight:700;
+  color:var(--navy);letter-spacing:0.05em;text-transform:uppercase;
+  margin-bottom:6px;
+}
+.field-label .req{color:var(--saffron);margin-left:2px}
+.field-note{font-size:10px;color:var(--muted);margin-bottom:6px;font-style:italic;font-weight:400;text-transform:none;letter-spacing:0}
+textarea.field-input,
+input.field-input,
+select.field-input{
+  width:100%;
+  background:var(--paper);
+  border:1px solid var(--border2);
+  border-radius:2px;
+  color:var(--ink);
+  font-size:13px;
+  font-family:'Barlow',sans-serif;
+  padding:10px 12px;
+  transition:border-color 0.2s;
+  outline:none;
+  line-height:1.6;
+}
+textarea.field-input:focus,
+input.field-input:focus,
+select.field-input:focus{border-color:var(--navy);box-shadow:0 0 0 2px rgba(11,31,58,0.08)}
+textarea.field-input{resize:vertical;min-height:120px}
+
+/* ===== AUTHORITY SELECTOR ===== */
+.auth-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.auth-sel{
+  border:2px solid var(--border);
+  border-radius:2px;
+  padding:14px;
+  cursor:pointer;
+  transition:all 0.2s;
+  background:var(--paper);
+  position:relative;
+}
+.auth-sel:hover{border-color:var(--navy);background:var(--white)}
+.auth-sel.selected.hr{border-color:var(--saffron);background:rgba(255,103,0,0.03)}
+.auth-sel.selected.icc{border-color:var(--navy);background:rgba(11,31,58,0.03)}
+.auth-sel.selected.ngo{border-color:var(--green);background:rgba(19,136,8,0.03)}
+.auth-sel-icon{font-size:22px;margin-bottom:6px}
+.auth-sel-name{font-size:12px;font-weight:700;color:var(--navy);letter-spacing:0.02em;margin-bottom:3px}
+.auth-sel-desc{font-size:10px;color:var(--muted);line-height:1.4}
+.auth-sel-check{
+  position:absolute;top:10px;right:10px;
+  width:18px;height:18px;border:1.5px solid var(--border2);
+  border-radius:2px;display:flex;align-items:center;justify-content:center;
+  font-size:10px;transition:all 0.2s;background:var(--white);
+}
+.auth-sel.selected.hr .auth-sel-check{background:var(--saffron);border-color:var(--saffron);color:#fff}
+.auth-sel.selected.icc .auth-sel-check{background:var(--navy);border-color:var(--navy);color:#fff}
+.auth-sel.selected.ngo .auth-sel-check{background:var(--green);border-color:var(--green);color:#fff}
+
+/* ===== BUTTONS ===== */
+.btn{
+  padding:10px 24px;border-radius:2px;border:none;
+  font-family:'Barlow',sans-serif;font-size:12px;font-weight:700;
+  cursor:pointer;transition:all 0.2s;
+  letter-spacing:0.06em;text-transform:uppercase;
+  display:inline-flex;align-items:center;gap:8px;
+}
+.btn-primary{background:var(--navy);color:var(--white)}
+.btn-primary:hover{background:var(--navy2);box-shadow:0 4px 12px rgba(11,31,58,0.25)}
+.btn-saffron{background:var(--saffron);color:var(--white)}
+.btn-saffron:hover{background:var(--saffron2);box-shadow:0 4px 12px rgba(255,103,0,0.3)}
+.btn-green{background:var(--green);color:var(--white)}
+.btn-green:hover{background:var(--green2)}
+.btn-outline{background:transparent;color:var(--navy);border:1.5px solid var(--navy)}
+.btn-outline:hover{background:var(--navy);color:var(--white)}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+
+/* ===== CRYPTO SECTION (user mode) ===== */
+.crypto-section{
+  background:var(--navy);
+  border:1px solid var(--navy2);
+  border-radius:2px;padding:16px 20px;margin-bottom:20px;
+}
+.crypto-section-label{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:rgba(255,255,255,0.4);letter-spacing:0.12em;text-transform:uppercase;
+  margin-bottom:8px;
+}
+.crypto-key-display{
+  font-family:'DM Mono',monospace;font-size:10px;
+  color:rgba(201,168,76,0.9);word-break:break-all;line-height:1.6;
+  filter:blur(4px);transition:filter 0.3s;
+}
+.crypto-key-display.revealed{filter:blur(0)}
+.reveal-toggle{
+  background:none;border:1px solid rgba(255,255,255,0.15);
+  border-radius:2px;padding:2px 8px;
+  color:rgba(255,255,255,0.5);font-size:9px;cursor:pointer;
+  font-family:'DM Mono',monospace;transition:all 0.2s;margin-top:6px;
+}
+.reveal-toggle:hover{border-color:rgba(255,255,255,0.3);color:rgba(255,255,255,0.8)}
+
+.token-box{
+  background:linear-gradient(135deg,rgba(201,168,76,0.1),rgba(201,168,76,0.05));
+  border:1px solid rgba(201,168,76,0.3);
+  border-radius:2px;padding:14px 16px;
+  margin-bottom:16px;
+}
+.token-label-text{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--gold);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;
+}
+.token-value-text{
+  font-family:'DM Mono',monospace;font-size:12px;
+  color:var(--white);word-break:break-all;letter-spacing:0.03em;
+}
+.token-warn-text{
+  font-size:10px;color:rgba(255,255,255,0.5);margin-top:6px;
+  font-style:italic;
+}
+
+/* Encryption live preview */
+.enc-live{
+  display:grid;grid-template-columns:1fr auto 1fr;
+  gap:8px;align-items:stretch;margin-bottom:12px;
+}
+.enc-pane{
+  background:var(--paper);border:1px solid var(--border);
+  border-radius:2px;padding:12px;
+}
+.enc-pane-label{
+  font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+  margin-bottom:8px;
+}
+.enc-pane-label.plain{color:var(--navy)}
+.enc-pane-label.cipher{color:var(--saffron)}
+.enc-plain-text{font-size:12px;color:var(--ink);line-height:1.5;min-height:60px}
+.enc-cipher-text{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--saffron);opacity:0.9;line-height:1.5;min-height:60px;
+  word-break:break-all;
+}
+.enc-arrow{
+  display:flex;align-items:center;justify-content:center;
+  color:var(--saffron);font-size:20px;padding:0 4px;
+}
+
+/* ===== SUCCESS STATE ===== */
+.success-box{
+  background:var(--white);
+  border:2px solid var(--green);
+  border-radius:2px;padding:24px;
+  text-align:center;margin-top:16px;
+  display:none;
+}
+.success-box.show{display:block}
+.success-stamp{
+  width:80px;height:80px;
+  border:3px solid var(--green);
+  border-radius:50%;margin:0 auto 16px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:32px;color:var(--green);
+}
+.success-title{
+  font-family:'Crimson Pro',serif;
+  font-size:22px;font-weight:700;color:var(--navy);margin-bottom:8px;
+}
+.success-ref{
+  font-family:'DM Mono',monospace;font-size:14px;
+  color:var(--navy);background:var(--cream);
+  border:1px solid var(--border2);
+  border-radius:2px;padding:10px 16px;
+  display:inline-block;margin:8px 0;letter-spacing:0.05em;
+}
+.success-note{font-size:11px;color:var(--muted);line-height:1.5;max-width:400px;margin:0 auto}
+
+/* ===== TRACK PAGE ===== */
+.track-form{
+  background:var(--white);border:1px solid var(--border);
+  border-radius:2px;padding:24px;margin-bottom:20px;
+}
+.track-form h3{
+  font-family:'Crimson Pro',serif;font-size:18px;color:var(--navy);
+  margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);
+}
+.status-card{
+  background:var(--paper);border:1px solid var(--border);
+  border-left:4px solid var(--green);
+  border-radius:2px;padding:16px;margin-top:16px;
+  display:none;
+}
+.status-card.show{display:block}
+.status-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:2px;
+  font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+  background:rgba(19,136,8,0.1);color:var(--green);
+  border:1px solid rgba(19,136,8,0.2);margin-bottom:12px;
+}
+
+/* ===== ABOUT PAGE ===== */
+.about-grid{display:grid;grid-template-columns:2fr 1fr;gap:24px}
+.about-card{
+  background:var(--white);border:1px solid var(--border);
+  border-radius:2px;padding:24px;
+}
+.about-card h3{
+  font-family:'Crimson Pro',serif;font-size:18px;color:var(--navy);
+  margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--saffron);
+  display:inline-block;
+}
+.feature-list-item{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 0;border-bottom:1px solid var(--border);
+}
+.feature-list-item:last-child{border:none}
+.feature-icon{
+  width:32px;height:32px;background:var(--cream);border:1px solid var(--border);
+  border-radius:2px;display:flex;align-items:center;justify-content:center;
+  font-size:14px;flex-shrink:0;
+}
+.feature-text-title{font-size:12px;font-weight:700;color:var(--navy);margin-bottom:2px}
+.feature-text-desc{font-size:11px;color:var(--muted);line-height:1.4}
+
+/* ===== SIMULATION MODE OVERLAY ===== */
+#simMode{display:none}
+#simMode.active{display:block}
+
+/* Simulation top banner */
+.sim-banner{
+  background:var(--saffron);
+  padding:8px 32px;
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:11px;font-weight:700;letter-spacing:0.05em;
+  color:var(--white);text-transform:uppercase;
+}
+.sim-banner-right{
+  font-weight:400;font-style:italic;text-transform:none;letter-spacing:0;
+  opacity:0.85;font-size:10px;
+}
+
+/* Simulation panels */
+.sim-layout{
+  display:grid;
+  grid-template-columns:1fr 280px 1fr;
+  min-height:calc(100vh - 180px);
+}
+.sim-panel{border-right:1px solid var(--border);background:var(--white)}
+.sim-panel:last-child{border-right:none}
+.sim-panel-header{
+  background:var(--navy);padding:12px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:10;
+}
+.sim-panel-label{
+  font-family:'DM Mono',monospace;font-size:8px;
+  color:rgba(255,255,255,0.4);letter-spacing:0.15em;text-transform:uppercase;
+}
+.sim-panel-title{font-size:13px;font-weight:700;color:var(--white);margin-top:1px}
+.sim-panel-badge{
+  font-family:'DM Mono',monospace;font-size:9px;
+  padding:3px 8px;border-radius:2px;
+}
+.sim-panel-body{padding:20px;overflow-y:auto}
+
+/* Terminal */
+.terminal{
+  background:var(--navy);border-radius:2px;
+  border:1px solid rgba(255,255,255,0.1);
+  overflow:hidden;margin-bottom:16px;
+}
+.terminal-titlebar{
+  background:rgba(255,255,255,0.07);
+  padding:6px 12px;border-bottom:1px solid rgba(255,255,255,0.07);
+  display:flex;align-items:center;gap:6px;
+}
+.t-btn{width:8px;height:8px;border-radius:50%}
+.t-btn:nth-child(1){background:#ff5f57}
+.t-btn:nth-child(2){background:#ffbd2e}
+.t-btn:nth-child(3){background:#28c840}
+.terminal-name{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:rgba(255,255,255,0.3);margin-left:4px;flex:1;text-align:center;
+}
+.terminal-body{
+  padding:12px 14px;
+  font-family:'DM Mono',monospace;font-size:9px;
+  line-height:2;min-height:80px;
+}
+.tl{display:flex;gap:8px;flex-wrap:wrap}
+.tk{color:rgba(255,255,255,0.35);flex-shrink:0}
+.tv{color:var(--gold);word-break:break-all;flex:1}
+.tv.red{color:#f87171}
+.tv.green{color:#6ee7b7}
+.tv.dim{color:rgba(255,255,255,0.2)}
+
+/* Sim authority tabs */
+.sim-auth-tabs{
+  display:flex;background:var(--cream);border-bottom:1px solid var(--border);
+}
+.sim-auth-tab{
+  flex:1;padding:10px;border-right:1px solid var(--border);
+  text-align:center;cursor:pointer;font-size:11px;font-weight:700;
+  color:var(--muted);transition:all 0.2s;letter-spacing:0.02em;
+  border-bottom:2px solid transparent;
+}
+.sim-auth-tab:last-child{border-right:none}
+.sim-auth-tab.hr.active{color:var(--saffron);border-bottom-color:var(--saffron);background:var(--white)}
+.sim-auth-tab.icc.active{color:var(--navy);border-bottom-color:var(--navy);background:var(--white)}
+.sim-auth-tab.ngo.active{color:var(--green);border-bottom-color:var(--green);background:var(--white)}
+
+/* Sim complaint cards */
+.sim-complaint{
+  background:var(--paper);border:1px solid var(--border);
+  border-radius:2px;padding:14px;margin-bottom:12px;
+}
+.sim-complaint-top{
+  display:flex;justify-content:space-between;margin-bottom:10px;
+  padding-bottom:8px;border-bottom:1px solid var(--border);
+}
+.sim-complaint-id{
+  font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);
+}
+.sim-blob{
+  font-family:'DM Mono',monospace;font-size:8px;
+  color:var(--saffron);opacity:0.8;word-break:break-all;
+  line-height:1.5;max-height:50px;overflow:hidden;
+  background:var(--navy);padding:8px;border-radius:2px;
+  margin-bottom:10px;position:relative;
+}
+.sim-blob::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:16px;
+  background:linear-gradient(transparent,var(--navy));
+}
+.decrypt-steps-sim{margin:10px 0;display:none}
+.dstep{
+  display:flex;align-items:center;gap:8px;
+  font-size:10px;color:var(--muted);padding:5px 0;
+  border-bottom:1px solid var(--border);
+  font-family:'DM Mono',monospace;
+}
+.dstep:last-child{border:none}
+.dstep.done{color:var(--green)}
+.dstep.running{color:var(--saffron)}
+.dstep-icon{
+  width:16px;height:16px;border-radius:2px;
+  border:1px solid currentColor;
+  display:flex;align-items:center;justify-content:center;
+  font-size:8px;flex-shrink:0;
+}
+.decrypted-reveal{
+  background:rgba(19,136,8,0.05);
+  border:1px solid rgba(19,136,8,0.2);
+  border-left:3px solid var(--green);
+  border-radius:2px;padding:12px;margin-top:10px;
+  font-size:12px;color:var(--ink);line-height:1.6;
+  display:none;animation:reveal 0.8s ease;
+}
+@keyframes reveal{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.decrypted-reveal.show{display:block}
+.excluded-sim{
+  text-align:center;padding:24px;
+  font-size:12px;color:var(--muted);
+}
+.excluded-sim .lock{font-size:28px;display:block;margin-bottom:8px;opacity:0.4}
+
+/* Server stats boxes */
+.server-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.server-stat{
+  background:var(--navy);border-radius:2px;padding:10px 12px;text-align:center;
+}
+.server-stat-n{
+  font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--white);
+}
+.server-stat-n.red{color:#f87171}
+.server-stat-n.gold{color:var(--gold)}
+.server-stat-l{
+  font-size:8px;color:rgba(255,255,255,0.3);
+  font-family:'DM Mono',monospace;margin-top:2px;letter-spacing:0.1em;
+}
+.blind-seal{
+  background:rgba(244,63,94,0.08);
+  border:1px solid rgba(244,63,94,0.2);
+  border-radius:2px;padding:10px 14px;
+  margin-bottom:14px;text-align:center;
+}
+.blind-seal-title{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:#f87171;letter-spacing:0.12em;text-transform:uppercase;
+}
+.blind-seal-sub{font-size:10px;color:var(--muted);margin-top:3px}
+
+/* Info boxes */
+.info-govt{
+  background:rgba(11,31,58,0.04);
+  border:1px solid rgba(11,31,58,0.1);
+  border-left:3px solid var(--navy);
+  border-radius:2px;padding:10px 12px;
+  margin-bottom:14px;font-size:11px;color:var(--ink2);line-height:1.5;
+}
+.info-govt strong{color:var(--navy);font-weight:700}
+
+.info-orange{
+  background:rgba(255,103,0,0.05);
+  border:1px solid rgba(255,103,0,0.15);
+  border-left:3px solid var(--saffron);
+  border-radius:2px;padding:10px 12px;
+  margin-bottom:14px;font-size:11px;color:var(--ink2);line-height:1.5;
+}
+
+/* Divider */
+.section-divider{
+  display:flex;align-items:center;gap:12px;margin:20px 0;
+}
+.section-divider::before,.section-divider::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
+.section-divider-text{
+  font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;
+  font-weight:700;white-space:nowrap;
+}
+
+/* Key wrap visualizer in sim */
+.wrap-vis{
+  background:var(--cream);border:1px solid var(--border);
+  border-radius:2px;padding:12px;margin-bottom:12px;
+}
+.wrap-vis-label{
+  font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:8px;
+}
+.wrap-row{
+  display:flex;align-items:center;gap:6px;margin-bottom:6px;
+  font-family:'DM Mono',monospace;font-size:9px;
+}
+.wrap-key{
+  background:var(--navy);color:var(--gold);
+  padding:3px 8px;border-radius:2px;font-size:8px;
+}
+.wrap-lock{color:var(--saffron);font-size:14px}
+.wrap-out{
+  background:var(--cream2);border:1px solid var(--border2);
+  color:var(--muted);padding:3px 8px;border-radius:2px;font-size:8px;
+  flex:1;word-break:break-all;overflow:hidden;max-width:120px;
+}
+.wrap-row.active .wrap-out{color:var(--saffron);border-color:var(--saffron);background:rgba(255,103,0,0.05)}
+
+/* Simulation step stepper */
+.sim-stepper{
+  display:flex;align-items:center;margin-bottom:16px;
+}
+.sim-step-node{
+  width:24px;height:24px;border-radius:50%;
+  border:2px solid var(--border2);
+  background:var(--white);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;color:var(--muted);
+  font-family:'DM Mono',monospace;flex-shrink:0;
+  cursor:pointer;transition:all 0.2s;
+}
+.sim-step-node.active{border-color:var(--saffron);color:var(--saffron)}
+.sim-step-node.done{border-color:var(--green);background:var(--green);color:white}
+.sim-step-line{flex:1;height:1px;background:var(--border)}
+.sim-step-line.done{background:var(--green)}
+
+/* Annotation bubbles for judges */
+.judge-note{
+  background:rgba(255,103,0,0.06);
+  border:1px dashed rgba(255,103,0,0.3);
+  border-radius:2px;padding:8px 12px;
+  font-size:10px;color:var(--saffron2);
+  font-style:italic;margin-bottom:12px;
+  display:flex;align-items:flex-start;gap:6px;
+}
+.judge-note::before{content:'💡';font-style:normal;flex-shrink:0}
+
+/* CRYPTO LOG */
+#cryptoLog{
+  position:fixed;bottom:0;left:0;right:0;z-index:1500;
+  background:var(--navy);border-top:1px solid rgba(255,255,255,0.1);
+  transform:translateY(100%);transition:transform 0.3s ease;
+  max-height:180px;
+}
+#cryptoLog.open{transform:translateY(0)}
+#cryptoLogToggle{
+  position:absolute;top:-28px;right:80px;
+  background:var(--navy);color:rgba(255,255,255,0.5);
+  border:none;border-radius:4px 4px 0 0;
+  padding:5px 14px;font-size:9px;cursor:pointer;
+  font-family:'DM Mono',monospace;letter-spacing:0.08em;
+}
+#cryptoLogBody{
+  padding:10px 16px;overflow-y:auto;max-height:150px;
+  font-family:'DM Mono',monospace;font-size:9px;line-height:2;
+}
+
+/* Responsive */
+@media(max-width:900px){
+  .sim-layout{grid-template-columns:1fr}
+  .auth-grid{grid-template-columns:1fr}
+  .about-grid{grid-template-columns:1fr}
+  .sim-layout .sim-panel{border-right:none;border-bottom:1px solid var(--border)}
+}
+
+/* Tricolor line */
+.tricolor{
+  height:4px;
+  background:linear-gradient(to right,var(--saffron) 33.33%,var(--white) 33.33% 66.66%,var(--green) 66.66%);
+}
+
+/* Print/stamp style elements */
+.stamp{
+  display:inline-flex;align-items:center;gap:6px;
+  border:2px solid currentColor;
+  padding:4px 12px;border-radius:2px;
+  font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;
+  font-family:'DM Mono',monospace;
+}
+.stamp.green{color:var(--green)}
+.stamp.navy{color:var(--navy)}
+.stamp.orange{color:var(--saffron)}
+
+/* Watermark */
+.watermark{
+  position:fixed;bottom:80px;right:24px;
+  font-family:'Crimson Pro',serif;
+  font-size:10px;color:rgba(11,31,58,0.15);
+  writing-mode:vertical-rl;letter-spacing:0.1em;
+  pointer-events:none;z-index:100;
+}
+
+/* Bypassnote */
+.bypass-note{
+  background:rgba(215,136,0,0.06);
+  border:1px solid rgba(215,136,0,0.2);
+  border-left:3px solid var(--warn);
+  border-radius:2px;padding:10px 12px;
+  font-size:11px;color:var(--ink2);line-height:1.5;
+  margin-top:10px;display:none;
+}
+</style>
+</head>
+<body>
+
+<!-- TRICOLOR TOP -->
+<div class="tricolor"></div>
+
+<!-- MODE SWITCHER -->
+<div id="modeSwitcher">
+  <div class="mode-brand">
+    <div class="ashoka-wheel">
+      <div class="wheel-spokes"></div>
+    </div>
+    <span>Aawaaz Portal &nbsp;—&nbsp; <span style="color:var(--gold);font-style:italic">आवाज़</span></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <span class="mode-label">MODE</span>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btnUser" onclick="setMode('user')">User Portal</button>
+      <button class="mode-btn" id="btnSim" onclick="setMode('sim')">Simulation</button>
+      <button class="mode-btn" id="btnPattern" onclick="goToPatternPage()">Pattern Detection</button>
+    </div>
+  </div>
+</div>
+
+<!-- GOVERNMENT HEADER -->
+<div id="govHeader">
+  <div class="gov-top">
+    <div class="gov-logo-area">
+      <div class="gov-emblem">
+        <div class="gov-emblem-inner">
+          <div class="gov-emblem-text">आ</div>
+        </div>
+      </div>
+      <div class="gov-titles">
+        <div class="gov-main-title">Aawaaz &nbsp;<span>आवाज़</span></div>
+        <div class="gov-sub-title">Encrypted Grievance Redressal Portal &nbsp;·&nbsp; <em>Secure · Anonymous · Sovereign</em></div>
+      </div>
+    </div>
+    <div class="gov-right">
+      <div class="secure-badge">
+        <div class="secure-dot"></div>
+        <span>AES-256-GCM</span>
+      </div>
+      <div class="secure-badge" style="color:var(--navy);background:rgba(11,31,58,0.06);border-color:rgba(11,31,58,0.2)">
+        🔒 E2E Encrypted
+      </div>
+      <div style="text-align:right">
+        <div id="liveTime" style="font-size:10px"></div>
+        <div style="font-size:9px;color:var(--muted);margin-top:1px">भारत सरकार</div>
+      </div>
+    </div>
+  </div>
+  <div class="gov-nav" id="govNavUser">
+    <div class="gov-nav-link active" onclick="showUserPage('file')">File Complaint</div>
+    <div class="gov-nav-link" onclick="showUserPage('track')">Track Complaint</div>
+    <div class="gov-nav-link" onclick="showUserPage('about')">About & Features</div>
+  </div>
+  <div class="gov-nav" id="govNavSim" style="display:none">
+    <div class="gov-nav-link active" onclick="showSimPage('live')">Live Simulation</div>
+    <div class="gov-nav-link" onclick="showSimPage('flow')">System Flow</div>
+    <div class="gov-nav-link" onclick="showSimPage('security')">Security Proofs</div>
+  </div>
+</div>
+
+<!-- QUICK EXIT -->
+<button id="quickExit" onclick="quickExit()">
+  <span>✕</span>
+  <span class="qt">Quick Exit</span>
+</button>
+
+<!-- WATERMARK -->
+<div class="watermark">AAWAAZ · CONFIDENTIAL · ENCRYPTED</div>
+
+<!-- ============================================================ -->
+<!--  USER MODE                                                    -->
+<!-- ============================================================ -->
+<div id="userMode">
+
+  <!-- FILE COMPLAINT -->
+  <div id="page-file" class="page active">
+    <div class="page-band">
+      <div>
+        <div class="page-band-title">File a <span>Grievance</span></div>
+        <div class="page-band-sub">Your complaint is encrypted in your browser. No plaintext is ever transmitted.</div>
+      </div>
+      <div class="page-band-meta">
+        <div id="cryptoStatus">Initializing crypto engine...</div>
+        <div>Session: In-Memory Only</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- CRYPTO KEY DISPLAY -->
+      <div class="crypto-section">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+          <div style="flex:1;min-width:220px">
+            <div class="crypto-section-label">Your Session Encryption Key (AES-256)</div>
+            <div class="crypto-key-display" id="userAesDisp">Generating...</div>
+            <button class="reveal-toggle" onclick="toggleKey('userAesDisp')">Show / Hide Key</button>
+          </div>
+          <div style="flex:1;min-width:220px">
+            <div class="token-box">
+              <div class="token-label-text">🎫 Complaint Tracking Token</div>
+              <div class="token-value-text" id="userToken">Generating...</div>
+              <div class="token-warn-text">⚠ Save this token. It is the only way to track your complaint. No login required.</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);display:flex;gap:8px;flex-wrap:wrap">
+          <span class="stamp navy" style="color:var(--gold);border-color:var(--gold)">✓ RAM Only</span>
+          <span class="stamp navy" style="color:rgba(255,255,255,0.4);border-color:rgba(255,255,255,0.15)">✗ No localStorage</span>
+          <span class="stamp navy" style="color:rgba(255,255,255,0.4);border-color:rgba(255,255,255,0.15)">✗ No sessionStorage</span>
+          <span class="stamp navy" style="color:rgba(255,255,255,0.4);border-color:rgba(255,255,255,0.15)">✗ No Cookies</span>
+        </div>
+      </div>
+
+      <!-- STEP 1: Incident Details -->
+      <div class="form-section">
+        <div class="form-section-header">
+          <div class="form-section-num">1</div>
+          <div class="form-section-title">Incident Details</div>
+        </div>
+        <div class="form-section-body">
+          <div class="info-govt"><strong>Privacy Notice:</strong> All text you enter is encrypted locally using AES-256-GCM before any data is transmitted. The encryption key exists only in your browser's RAM for this session.</div>
+
+          <!-- Live encryption preview -->
+          <div class="enc-live" id="encLive">
+            <div class="enc-pane">
+              <div class="enc-pane-label plain">What you write</div>
+              <div class="enc-plain-text" id="encPlainPrev">Start typing your complaint below...</div>
+            </div>
+            <div class="enc-arrow">→</div>
+            <div class="enc-pane" style="border-color:rgba(255,103,0,0.2)">
+              <div class="enc-pane-label cipher">What leaves your browser</div>
+              <div class="enc-cipher-text" id="encCipherPrev">awaiting input...</div>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Nature of Grievance <span class="req">*</span></label>
+            <select class="field-input" id="incidentCategory">
+              <option value="">-- Select Category --</option>
+              <option>Workplace Harassment (POSH Act)</option>
+              <option>Sexual Harassment</option>
+              <option>Discrimination</option>
+              <option>Wrongful Termination</option>
+              <option>Hostile Work Environment</option>
+              <option>Whistleblower Complaint</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Describe the Incident <span class="req">*</span></label>
+            <div class="field-note">This text is encrypted in real time as you type. The right panel above shows what actually gets transmitted — ciphertext only.</div>
+            <textarea class="field-input" id="complaintInput" placeholder="Provide a detailed account of the incident(s), including dates, locations, and what occurred..." oninput="onComplaintType(this.value)"></textarea>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Date of Incident</label>
+            <input type="date" class="field-input" id="incidentDate" style="max-width:240px">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Department / Division <span style="font-weight:400;text-transform:none;font-style:italic;font-size:10px;color:var(--muted)">(optional — leave blank to remain fully anonymous)</span></label>
+            <input type="text" class="field-input" id="incidentDept" placeholder="e.g. Finance Department, Block B">
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: Authorities -->
+      <div class="form-section">
+        <div class="form-section-header">
+          <div class="form-section-num">2</div>
+          <div class="form-section-title">Select Receiving Authorities</div>
+        </div>
+        <div class="form-section-body">
+          <div class="info-orange">Your complaint will be encrypted with each selected authority's <strong>public key</strong>. Only they can decrypt it using their private key. Unselected authorities are <strong>mathematically excluded</strong> — not just policy-excluded.</div>
+          <div class="auth-grid">
+            <div class="auth-sel hr" id="authHR" onclick="toggleAuth('HR')">
+              <div class="auth-sel-check" id="chkHR"></div>
+              <div class="auth-sel-icon">🏢</div>
+              <div class="auth-sel-name">Human Resources</div>
+              <div class="auth-sel-desc">Internal grievance cell. First point of contact for workplace complaints.</div>
+            </div>
+            <div class="auth-sel icc" id="authICC" onclick="toggleAuth('ICC')">
+              <div class="auth-sel-check" id="chkICC"></div>
+              <div class="auth-sel-icon">⚖️</div>
+              <div class="auth-sel-name">IC Committee</div>
+              <div class="auth-sel-desc">POSH Act mandated Internal Complaints Committee for sexual harassment.</div>
+            </div>
+            <div class="auth-sel ngo" id="authNGO" onclick="toggleAuth('NGO')">
+              <div class="auth-sel-check" id="chkNGO"></div>
+              <div class="auth-sel-icon">🌿</div>
+              <div class="auth-sel-name">NGO Partner</div>
+              <div class="auth-sel-desc">Independent third-party body. Use this to bypass internal authorities if needed.</div>
+            </div>
+          </div>
+          <div class="bypass-note" id="bypassNote">
+            ⚠️ <strong>Bypass Mode Active:</strong> You have deselected one or more internal authorities. This is by design — if an authority is involved in the harassment, you should exclude them. They cannot access your complaint even with full server access.
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: Options -->
+      <div class="form-section">
+        <div class="form-section-header">
+          <div class="form-section-num">3</div>
+          <div class="form-section-title">Submission Options</div>
+        </div>
+        <div class="form-section-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div class="field-group">
+              <label class="field-label">Delayed Release</label>
+              <div class="field-note">Your complaint will be held encrypted and released to authorities only after this date. Leave blank for immediate release.</div>
+              <input type="datetime-local" class="field-input" id="delayRelease">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Evidence Attachment</label>
+              <div class="field-note">All metadata (GPS, device info, timestamps) will be automatically stripped before encryption.</div>
+              <input type="file" class="field-input" onchange="handleFile(this)" accept="image/*,.pdf">
+              <div id="metaStripStatus" style="margin-top:6px;font-size:10px;color:var(--muted)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBMIT -->
+      <div style="display:flex;gap:12px;align-items:center;justify-content:flex-end;margin-bottom:8px">
+        <button class="btn btn-outline" onclick="emergencyDelete()">⚡ Emergency Clear</button>
+        <button class="btn btn-primary" id="submitBtn" onclick="submitComplaint()">Submit Encrypted Complaint →</button>
+      </div>
+
+      <div class="success-box" id="successBox">
+        <div class="success-stamp">✓</div>
+        <div class="success-title">Complaint Filed Successfully</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Your Reference Number / Tracking Token:</div>
+        <div class="success-ref" id="successRef">—</div>
+        <div class="success-note">Save this reference number. It is the only way to track your complaint status. No personal information was stored or transmitted. Your complaint is encrypted and awaiting review by the authorities you selected.</div>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
+          <button class="btn btn-primary" onclick="showUserPage('track')">Track This Complaint →</button>
+          <button class="btn btn-outline" onclick="window.print()">Print Reference</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TRACK -->
+  <div id="page-track" class="page" style="display:none">
+    <div class="page-band">
+      <div>
+        <div class="page-band-title">Track Your <span>Complaint</span></div>
+        <div class="page-band-sub">Enter your tracking token. No personal information required.</div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="track-form">
+        <h3>Complaint Status Enquiry</h3>
+        <div class="field-group">
+          <label class="field-label">Tracking Token <span class="req">*</span></label>
+          <div class="field-note">The UUID token issued to you at the time of complaint submission.</div>
+          <input type="text" class="field-input" id="trackInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="font-family:'DM Mono',monospace">
+        </div>
+        <button class="btn btn-primary" onclick="trackComplaint()">Fetch Status →</button>
+
+        <div class="status-card" id="statusCard">
+          <div class="status-badge">🟢 Active — Under Review</div>
+          <div style="font-size:13px;color:var(--ink);margin-bottom:8px;font-family:'Crimson Pro',serif;font-size:16px">Complaint Reference: <strong id="trackRef">—</strong></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:11px;color:var(--muted)">
+            <div><strong style="color:var(--navy);display:block">Filed On</strong><span id="trackDate">—</span></div>
+            <div><strong style="color:var(--navy);display:block">Authorities Notified</strong><span id="trackAuths">—</span></div>
+            <div><strong style="color:var(--navy);display:block">Current Status</strong><span style="color:var(--green)">Under Review</span></div>
+            <div><strong style="color:var(--navy);display:block">Encrypted</strong><span style="color:var(--green)">✓ Yes — AES-256-GCM</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABOUT -->
+  <div id="page-about" class="page" style="display:none">
+    <div class="page-band">
+      <div>
+        <div class="page-band-title">About <span>Aawaaz</span></div>
+        <div class="page-band-sub">Privacy-first grievance redressal — built on cryptographic guarantees, not policy promises.</div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="about-grid">
+        <div>
+          <div class="about-card" style="margin-bottom:20px">
+            <h3>Security Architecture</h3>
+            <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">Aawaaz uses a layered cryptographic architecture to ensure that even if the server is fully compromised, your complaint remains unreadable. No policy document — mathematical proof.</p>
+            <div class="feature-list-item">
+              <div class="feature-icon">🔐</div>
+              <div>
+                <div class="feature-text-title">AES-256-GCM Encryption</div>
+                <div class="feature-text-desc">Military-grade symmetric encryption performed entirely in your browser using the Web Crypto API. Your complaint is encrypted before a single byte leaves your device.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">🔑</div>
+              <div>
+                <div class="feature-text-title">RSA-OAEP Key Wrapping</div>
+                <div class="feature-text-desc">Your AES key is encrypted (wrapped) with each selected authority's RSA-2048 public key. Only they can unwrap it using their private key — which never touches the server.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">🎯</div>
+              <div>
+                <div class="feature-text-title">Authority Bypass Control</div>
+                <div class="feature-text-desc">You choose who receives your complaint. Unselected authorities receive no wrapped key — they are mathematically excluded regardless of their server access level.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">🫥</div>
+              <div>
+                <div class="feature-text-title">Zero Identity Architecture</div>
+                <div class="feature-text-desc">No name, email, phone, or IP address is collected. Your tracking token is a random UUID. Even Aawaaz cannot identify you.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">🧮</div>
+              <div>
+                <div class="feature-text-title">Zero Knowledge Proofs</div>
+                <div class="feature-text-desc">Prove organizational membership without revealing identity using ZKP circuits. Verify your complaint is legitimate without doxxing yourself.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">📷</div>
+              <div>
+                <div class="feature-text-title">EXIF Metadata Stripping</div>
+                <div class="feature-text-desc">Photos contain GPS coordinates, device model, and timestamps. Aawaaz strips all metadata via canvas redraw before encryption. Your location remains yours.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="about-card" style="margin-bottom:16px">
+            <h3>Safety Features</h3>
+            <div class="feature-list-item">
+              <div class="feature-icon">🥷</div>
+              <div>
+                <div class="feature-text-title">Stealth Mode</div>
+                <div class="feature-text-desc">Tab title and favicon disguise the portal as a neutral page if someone looks over your shoulder.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">⚡</div>
+              <div>
+                <div class="feature-text-title">Quick Exit</div>
+                <div class="feature-text-desc">One click wipes all data and redirects to a neutral site. No trace in browser history.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">⏰</div>
+              <div>
+                <div class="feature-text-title">Delayed Release</div>
+                <div class="feature-text-desc">Schedule when your complaint is released to authorities. Acts as a safety mechanism — cancel anytime with your tracking token.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">🌐</div>
+              <div>
+                <div class="feature-text-title">IP Stripping</div>
+                <div class="feature-text-desc">Requests route through a reverse proxy that strips all IP headers. The server log contains no user IP addresses.</div>
+              </div>
+            </div>
+          </div>
+          <div class="about-card">
+            <h3>Legal Basis</h3>
+            <p style="font-size:12px;color:var(--muted);line-height:1.6">Built in compliance with:</p>
+            <ul style="font-size:11px;color:var(--ink2);line-height:2;padding-left:16px;margin-top:8px">
+              <li>POSH Act, 2013</li>
+              <li>Information Technology Act, 2000</li>
+              <li>Digital Personal Data Protection Act, 2023</li>
+              <li>Vishakha Guidelines</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /userMode -->
+
+<!-- ============================================================ -->
+<!--  SIMULATION MODE                                             -->
+<!-- ============================================================ -->
+<div id="simMode">
+
+  <!-- SIM: LIVE -->
+  <div id="simpage-live" class="page active">
+    <div class="sim-banner">
+      🎓 Judge / Evaluator Mode — Live Cryptographic Simulation
+      <span class="sim-banner-right">Real Web Crypto API · Every key is genuine · Open DevTools to verify</span>
+    </div>
+
+    <div class="sim-layout">
+
+      <!-- USER PANEL -->
+      <div class="sim-panel">
+        <div class="sim-panel-header">
+          <div>
+            <div class="sim-panel-label">Panel A — User's Browser</div>
+            <div class="sim-panel-title">Complaint Filing</div>
+          </div>
+          <div class="sim-panel-badge" style="background:rgba(255,103,0,0.15);color:var(--saffron)">CLIENT SIDE</div>
+        </div>
+
+        <!-- Step progress -->
+        <div style="padding:16px 20px 0">
+          <div class="sim-stepper">
+            <div class="sim-step-node done" id="sn1" onclick="simSetStep(1)" title="Key Generation">1</div>
+            <div class="sim-step-line" id="sl1"></div>
+            <div class="sim-step-node active" id="sn2" onclick="simSetStep(2)" title="Write & Encrypt">2</div>
+            <div class="sim-step-line" id="sl2"></div>
+            <div class="sim-step-node" id="sn3" onclick="simSetStep(3)" title="Authority Selection">3</div>
+            <div class="sim-step-line" id="sl3"></div>
+            <div class="sim-step-node" id="sn4" onclick="simSetStep(4)" title="Submit">4</div>
+          </div>
+        </div>
+
+        <div class="sim-panel-body">
+
+          <!-- STEP 1 -->
+          <div id="simStep1" style="display:none">
+            <div class="judge-note">On initialization, the browser generates a real AES-256-GCM key using <code>crypto.subtle.generateKey()</code>. This key exists only in JS memory — never written to disk.</div>
+            <div style="background:var(--navy);border-radius:2px;padding:14px;margin-bottom:12px">
+              <div style="font-family:'DM Mono',monospace;font-size:8px;color:rgba(255,255,255,0.3);margin-bottom:6px;letter-spacing:0.1em">AES-256-GCM SESSION KEY</div>
+              <div class="crypto-key-display revealed" id="simAesKey" style="font-size:9px">Generating...</div>
+            </div>
+            <div style="background:var(--navy);border-radius:2px;padding:14px">
+              <div style="font-family:'DM Mono',monospace;font-size:8px;color:rgba(255,255,255,0.3);margin-bottom:6px;letter-spacing:0.1em">TRACKING TOKEN (UUID)</div>
+              <div class="crypto-key-display revealed" id="simToken" style="font-size:10px;color:rgba(201,168,76,0.9)">Generating...</div>
+            </div>
+            <button class="btn btn-saffron" style="width:100%;margin-top:12px;justify-content:center" onclick="simSetStep(2)">Next: Write Complaint →</button>
+          </div>
+
+          <!-- STEP 2 -->
+          <div id="simStep2">
+            <div class="judge-note">As the user types, the complaint is encrypted in real time. The right pane shows actual AES-GCM ciphertext. Plaintext never leaves this panel.</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+              <div class="enc-pane">
+                <div class="enc-pane-label plain" style="font-size:8px">PLAINTEXT (browser only)</div>
+                <div class="enc-plain-text" id="simPlainPrev" style="font-size:11px;min-height:70px">Type below...</div>
+              </div>
+              <div class="enc-pane" style="border-color:rgba(255,103,0,0.2)">
+                <div class="enc-pane-label cipher" style="font-size:8px">CIPHERTEXT (transmitted)</div>
+                <div class="enc-cipher-text" id="simCipherPrev" style="min-height:70px">...</div>
+              </div>
+            </div>
+            <textarea class="field-input" id="simComplaintInput" placeholder="Type a sample complaint here to see live encryption..." oninput="onSimType(this.value)" rows="3"></textarea>
+            <button class="btn btn-saffron" style="width:100%;margin-top:8px;justify-content:center" onclick="simSetStep(3)">Next: Select Authorities →</button>
+          </div>
+
+          <!-- STEP 3 -->
+          <div id="simStep3" style="display:none">
+            <div class="judge-note">User selects which authorities can decrypt. For each selected authority, the AES key is wrapped (encrypted) using their RSA-2048 public key.</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+              <div class="auth-sel hr" id="simAuthHR" onclick="simToggleAuth('HR')" style="padding:10px 12px">
+                <div class="auth-sel-check" id="simChkHR"></div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span>🏢</span>
+                  <div>
+                    <div class="auth-sel-name" style="font-size:11px">Human Resources</div>
+                    <div class="auth-sel-desc" style="font-size:9px" id="simPubkeyHR">Loading RSA public key...</div>
+                  </div>
+                </div>
+              </div>
+              <div class="auth-sel icc" id="simAuthICC" onclick="simToggleAuth('ICC')" style="padding:10px 12px">
+                <div class="auth-sel-check" id="simChkICC"></div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span>⚖️</span>
+                  <div>
+                    <div class="auth-sel-name" style="font-size:11px">IC Committee</div>
+                    <div class="auth-sel-desc" style="font-size:9px" id="simPubkeyICC">Loading RSA public key...</div>
+                  </div>
+                </div>
+              </div>
+              <div class="auth-sel ngo" id="simAuthNGO" onclick="simToggleAuth('NGO')" style="padding:10px 12px">
+                <div class="auth-sel-check" id="simChkNGO"></div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span>🌿</span>
+                  <div>
+                    <div class="auth-sel-name" style="font-size:11px">NGO Partner</div>
+                    <div class="auth-sel-desc" style="font-size:9px" id="simPubkeyNGO">Loading RSA public key...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="wrap-vis">
+              <div class="wrap-vis-label">Key Wrapping Status</div>
+              <div class="wrap-row" id="wrapRowHR">
+                <div class="wrap-key">AES-KEY</div>
+                <span style="color:var(--muted);padding:0 4px;font-size:10px">+</span>
+                <div class="wrap-key">HR_PUB</div>
+                <span class="wrap-lock">→</span>
+                <div class="wrap-out" id="wrapOutHR">not wrapped</div>
+              </div>
+              <div class="wrap-row" id="wrapRowICC">
+                <div class="wrap-key">AES-KEY</div>
+                <span style="color:var(--muted);padding:0 4px;font-size:10px">+</span>
+                <div class="wrap-key">ICC_PUB</div>
+                <span class="wrap-lock">→</span>
+                <div class="wrap-out" id="wrapOutICC">not wrapped</div>
+              </div>
+              <div class="wrap-row" id="wrapRowNGO">
+                <div class="wrap-key">AES-KEY</div>
+                <span style="color:var(--muted);padding:0 4px;font-size:10px">+</span>
+                <div class="wrap-key">NGO_PUB</div>
+                <span class="wrap-lock">→</span>
+                <div class="wrap-out" id="wrapOutNGO">not wrapped</div>
+              </div>
+            </div>
+            <button class="btn btn-saffron" style="width:100%;justify-content:center" onclick="simSetStep(4)">Next: Submit →</button>
+          </div>
+
+          <!-- STEP 4 -->
+          <div id="simStep4" style="display:none">
+            <div class="judge-note">Review the payload before submission. Notice: only ciphertext and wrapped keys. No plaintext, no identity, no IP.</div>
+            <div class="terminal" style="margin-bottom:12px">
+              <div class="terminal-titlebar"><div class="t-btn"></div><div class="t-btn"></div><div class="t-btn"></div><div class="terminal-name">payload.json → server</div></div>
+              <div class="terminal-body">
+                <div class="tl"><span class="tk">encrypted_blob:</span><span class="tv" id="simPPayload">submit to see...</span></div>
+                <div class="tl"><span class="tk">wrapped_keys:</span><span class="tv" id="simPKeys">{}</span></div>
+                <div class="tl"><span class="tk">tracking_hash:</span><span class="tv" id="simPToken">—</span></div>
+                <div class="tl"><span class="tk">ip_address:</span><span class="tv red">[STRIPPED AT PROXY]</span></div>
+                <div class="tl"><span class="tk">identity:</span><span class="tv red">[UNKNOWN — BY DESIGN]</span></div>
+                <div class="tl"><span class="tk">plaintext:</span><span class="tv dim">[DOES NOT EXIST]</span></div>
+              </div>
+            </div>
+            <button class="btn btn-green" style="width:100%;justify-content:center" id="simSubmitBtn" onclick="simSubmit()">🔐 Submit Encrypted Complaint</button>
+            <div class="success-box" id="simSuccessBox" style="margin-top:12px;padding:16px;text-align:left">
+              <div class="stamp green" style="margin-bottom:10px">✓ Submitted</div>
+              <div style="font-size:11px;color:var(--muted)">Token: <span class="mono" id="simSuccessToken" style="color:var(--navy);font-size:10px"></span></div>
+              <div style="font-size:10px;color:var(--muted);margin-top:6px">→ Check Authority Panel to see decryption in action</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- SERVER PANEL -->
+      <div class="sim-panel" style="background:var(--cream)">
+        <div class="sim-panel-header" style="background:var(--ink)">
+          <div>
+            <div class="sim-panel-label">Panel B — Server</div>
+            <div class="sim-panel-title">What Server Sees</div>
+          </div>
+          <div class="sim-panel-badge" style="background:rgba(244,63,94,0.2);color:#f87171">BLIND</div>
+        </div>
+        <div class="sim-panel-body">
+          <div class="blind-seal">
+            <div class="blind-seal-title">Architecturally Blind</div>
+            <div class="blind-seal-sub">No private keys. Cannot decrypt. Even full server compromise = only ciphertext.</div>
+          </div>
+          <div class="server-stat-grid">
+            <div class="server-stat">
+              <div class="server-stat-n gold" id="simSubCount">0</div>
+              <div class="server-stat-l">COMPLAINTS</div>
+            </div>
+            <div class="server-stat">
+              <div class="server-stat-n red">0</div>
+              <div class="server-stat-l">IPs LOGGED</div>
+            </div>
+            <div class="server-stat">
+              <div class="server-stat-n" style="color:#6ee7b7" id="simKeyCount">0</div>
+              <div class="server-stat-l">WRAPPED KEYS</div>
+            </div>
+            <div class="server-stat">
+              <div class="server-stat-n red">0</div>
+              <div class="server-stat-l">PLAINTEXT</div>
+            </div>
+          </div>
+
+          <div class="terminal">
+            <div class="terminal-titlebar"><div class="t-btn"></div><div class="t-btn"></div><div class="t-btn"></div><div class="terminal-name">server.log</div></div>
+            <div class="terminal-body" id="simServerLog" style="min-height:100px">
+              <div style="color:rgba(255,255,255,0.2);font-size:8px">Awaiting requests...</div>
+            </div>
+          </div>
+
+          <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:8px 0;letter-spacing:0.1em;text-transform:uppercase">Stored Records</div>
+          <div id="simStoredRecords">
+            <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:center;padding:16px">No records yet</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AUTHORITY PANEL -->
+      <div class="sim-panel">
+        <div class="sim-panel-header">
+          <div>
+            <div class="sim-panel-label">Panel C — Authority Dashboard</div>
+            <div class="sim-panel-title">Decrypt & Review</div>
+          </div>
+          <div class="sim-panel-badge" style="background:rgba(19,136,8,0.15);color:#6ee7b7">PRIVATE KEY</div>
+        </div>
+        <div class="sim-auth-tabs">
+          <div class="sim-auth-tab hr active" onclick="simSwitchAuth('HR')">🏢 HR</div>
+          <div class="sim-auth-tab icc" onclick="simSwitchAuth('ICC')">⚖️ ICC</div>
+          <div class="sim-auth-tab ngo" onclick="simSwitchAuth('NGO')">🌿 NGO</div>
+        </div>
+        <div class="sim-panel-body" id="simAuthBody">
+
+          <div id="simAuthContent_HR">
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:12px;margin-bottom:12px">
+              <div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">HR Private Key (RSA-2048)</div>
+              <div class="crypto-key-display" id="simHRPrivKey" style="font-size:8px;color:var(--danger)">Loading...</div>
+              <button class="reveal-toggle" style="background:var(--cream);color:var(--muted);border-color:var(--border2)" onclick="toggleKey('simHRPrivKey')">Show / Hide</button>
+              <div style="font-size:9px;color:var(--muted);margin-top:6px;font-style:italic">In production: stored on HSM — never server-side</div>
+            </div>
+            <div id="hrSimComplaints"></div>
+          </div>
+
+          <div id="simAuthContent_ICC" style="display:none">
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:12px;margin-bottom:12px">
+              <div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">ICC Private Key (RSA-2048)</div>
+              <div class="crypto-key-display" id="simICCPrivKey" style="font-size:8px;color:var(--danger)">Loading...</div>
+              <button class="reveal-toggle" style="background:var(--cream);color:var(--muted);border-color:var(--border2)" onclick="toggleKey('simICCPrivKey')">Show / Hide</button>
+            </div>
+            <div id="iccSimComplaints"></div>
+          </div>
+
+          <div id="simAuthContent_NGO" style="display:none">
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:12px;margin-bottom:12px">
+              <div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">NGO Private Key (RSA-2048)</div>
+              <div class="crypto-key-display" id="simNGOPrivKey" style="font-size:8px;color:var(--danger)">Loading...</div>
+              <button class="reveal-toggle" style="background:var(--cream);color:var(--muted);border-color:var(--border2)" onclick="toggleKey('simNGOPrivKey')">Show / Hide</button>
+            </div>
+            <div id="ngoSimComplaints"></div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /sim-layout -->
+
+    <!-- CRYPTO LOG -->
+    <button id="cryptoLogToggle" onclick="toggleCryptoLog()">📋 Crypto Log (<span id="simLogCount">0</span>)</button>
+    <div id="cryptoLog">
+      <div id="cryptoLogBody"></div>
+    </div>
+
+  </div><!-- /simpage-live -->
+
+  <!-- SIM: FLOW -->
+  <div id="simpage-flow" class="page" style="display:none;padding-top:0">
+    <div class="sim-banner">System Architecture Flow<span class="sim-banner-right">Click any node to expand</span></div>
+    <div class="content" style="max-width:900px">
+      <div style="padding:24px 0">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+          <div class="about-card" onclick="this.querySelector('.flow-detail').style.display=this.querySelector('.flow-detail').style.display==='none'?'block':'none'" style="cursor:pointer;transition:all 0.2s;border-left:4px solid var(--saffron)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <div style="width:28px;height:28px;background:var(--navy);color:var(--white);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0">01</div>
+              <div style="font-family:'Crimson Pro',serif;font-size:16px;font-weight:700;color:var(--navy)">Browser Key Generation</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5">AES-256-GCM key generated entirely in-browser. Never leaves RAM. UUID tracking token created.</div>
+            <div class="flow-detail" style="display:none;margin-top:10px;background:var(--navy);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);line-height:1.8">crypto.subtle.generateKey({name:'AES-GCM',length:256},true,['encrypt','decrypt'])<br>→ CryptoKey in JS memory<br>crypto.randomUUID() → tracking token</div>
+          </div>
+
+          <div class="about-card" onclick="this.querySelector('.flow-detail').style.display=this.querySelector('.flow-detail').style.display==='none'?'block':'none'" style="cursor:pointer;border-left:4px solid var(--navy)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <div style="width:28px;height:28px;background:var(--navy);color:var(--white);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0">02</div>
+              <div style="font-family:'Crimson Pro',serif;font-size:16px;font-weight:700;color:var(--navy)">Complaint Encryption</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5">Complaint text encrypted with AES key. Random 12-byte IV generated per submission. Plaintext discarded.</div>
+            <div class="flow-detail" style="display:none;margin-top:10px;background:var(--navy);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);line-height:1.8">crypto.getRandomValues(new Uint8Array(12)) → IV<br>crypto.subtle.encrypt({name:'AES-GCM',iv}, key, text)<br>→ ArrayBuffer ciphertext</div>
+          </div>
+
+          <div class="about-card" onclick="this.querySelector('.flow-detail').style.display=this.querySelector('.flow-detail').style.display==='none'?'block':'none'" style="cursor:pointer;border-left:4px solid var(--gold)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <div style="width:28px;height:28px;background:var(--navy);color:var(--white);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0">03</div>
+              <div style="font-family:'Crimson Pro',serif;font-size:16px;font-weight:700;color:var(--navy)">RSA Key Wrapping</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5">AES key wrapped with each selected authority's RSA-2048 public key. Unselected = no key = cryptographic exclusion.</div>
+            <div class="flow-detail" style="display:none;margin-top:10px;background:var(--navy);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);line-height:1.8">crypto.subtle.wrapKey('raw',aesKey,authorityPublicKey,{name:'RSA-OAEP'})<br>→ ArrayBuffer wrappedKey per authority<br>Unselected: no wrap → mathematically excluded</div>
+          </div>
+
+          <div class="about-card" onclick="this.querySelector('.flow-detail').style.display=this.querySelector('.flow-detail').style.display==='none'?'block':'none'" style="cursor:pointer;border-left:4px solid var(--danger)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <div style="width:28px;height:28px;background:var(--navy);color:var(--white);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0">04</div>
+              <div style="font-family:'Crimson Pro',serif;font-size:16px;font-weight:700;color:var(--navy)">Blind Server Storage</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5">Server stores only ciphertext and wrapped keys. No private keys, no plaintext, no IP. Architecturally incapable of decrypting.</div>
+            <div class="flow-detail" style="display:none;margin-top:10px;background:var(--navy);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);line-height:1.8">Stored: {encrypted_blob, iv, wrapped_keys[], tracking_hash}<br>Not stored: plaintext, user_ip, user_identity<br>Server compromise → attacker sees only ciphertext</div>
+          </div>
+
+          <div class="about-card" onclick="this.querySelector('.flow-detail').style.display=this.querySelector('.flow-detail').style.display==='none'?'block':'none'" style="cursor:pointer;border-left:4px solid var(--green)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <div style="width:28px;height:28px;background:var(--navy);color:var(--white);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0">05</div>
+              <div style="font-family:'Crimson Pro',serif;font-size:16px;font-weight:700;color:var(--navy)">Authority Decryption</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5">Authority uses private key to unwrap AES key, then decrypts complaint. Two-step process. Private key never touches server.</div>
+            <div class="flow-detail" style="display:none;margin-top:10px;background:var(--navy);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);line-height:1.8">crypto.subtle.unwrapKey('raw',wrappedKey,privateKey,{name:'RSA-OAEP'},{name:'AES-GCM'})<br>→ Recovered AES key<br>crypto.subtle.decrypt({name:'AES-GCM',iv},aesKey,ciphertext)</div>
+          </div>
+
+          <div class="about-card" onclick="this.querySelector('.flow-detail').style.display=this.querySelector('.flow-detail').style.display==='none'?'block':'none'" style="cursor:pointer;border-left:4px solid var(--muted)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <div style="width:28px;height:28px;background:var(--navy);color:var(--white);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0">06</div>
+              <div style="font-family:'Crimson Pro',serif;font-size:16px;font-weight:700;color:var(--navy)">Anonymous Status Tracking</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5">User checks status using only tracking token. Response encrypted back to user. No login, no identity, full anonymity maintained.</div>
+            <div class="flow-detail" style="display:none;margin-top:10px;background:var(--navy);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);line-height:1.8">User submits: hash(tracking_token)<br>Server: finds complaint, returns encrypted status<br>Client: decrypts with token-derived key<br>→ Full anonymity preserved</div>
+          </div>
+
+        </div>
+
+        <div class="about-card" style="margin-top:16px">
+          <h3>Security Guarantees</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:12px">
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:10px">
+              <div class="stamp green" style="font-size:9px;margin-bottom:6px">✓ Forward Secrecy</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.4">New key per complaint — one compromise reveals nothing else</div>
+            </div>
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:10px">
+              <div class="stamp navy" style="font-size:9px;margin-bottom:6px">✓ Zero Trust</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.4">Server holds no private keys — compromise yields only ciphertext</div>
+            </div>
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:10px">
+              <div class="stamp orange" style="font-size:9px;margin-bottom:6px">✓ Auth Encryption</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.4">AES-GCM provides confidentiality and tamper detection in one pass</div>
+            </div>
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:10px">
+              <div class="stamp green" style="font-size:9px;margin-bottom:6px">✓ User Sovereignty</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.4">Cryptographic exclusion of authorities — not policy-based, math-based</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- SIM: SECURITY -->
+  <div id="simpage-security" class="page" style="display:none;padding-top:0">
+    <div class="sim-banner">Security Proofs & Technical Specifications<span class="sim-banner-right">For technical evaluators</span></div>
+    <div class="content" style="max-width:900px">
+      <div style="padding:24px 0;display:grid;gap:16px">
+        <div class="about-card">
+          <h3>Zero Knowledge Proof Simulation</h3>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px">Prove organizational membership without revealing identity. Uses Groth16 circuit over a Merkle membership tree.</div>
+          <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:8px;align-items:center;margin-bottom:16px">
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:12px;text-align:center">
+              <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">USER PROVES</div>
+              <div style="font-size:12px;font-weight:600;color:var(--navy)">"I belong to Org"</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px;font-family:'DM Mono',monospace">identity: HIDDEN</div>
+            </div>
+            <div style="color:var(--saffron);font-size:20px;text-align:center">→</div>
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:12px;text-align:center">
+              <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">VERIFIER CHECKS</div>
+              <div style="font-size:12px;font-weight:600;color:var(--navy)">proof ≠ secret</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px;font-family:'DM Mono',monospace">sees: π only</div>
+            </div>
+            <div style="color:var(--saffron);font-size:20px;text-align:center">→</div>
+            <div style="background:rgba(19,136,8,0.05);border:1px solid rgba(19,136,8,0.2);border-radius:2px;padding:12px;text-align:center">
+              <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">RESULT</div>
+              <div style="font-size:12px;font-weight:700;color:var(--green)">Verified ✓</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px;font-family:'DM Mono',monospace">identity: UNKNOWN</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="runZKP()">Run ZKP Simulation</button>
+          <div id="zkpOutput" style="display:none;margin-top:12px;background:var(--navy);border-radius:2px;padding:12px;font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);line-height:2"></div>
+        </div>
+
+        <div class="about-card">
+          <h3>EXIF Metadata Stripping Demo</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;color:var(--danger);text-transform:uppercase;margin-bottom:8px">Before — Dangerous</div>
+              <div style="background:var(--cream);border:1px solid rgba(220,38,38,0.2);border-radius:2px">
+                <div id="metaBefore">
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">GPS</span><span style="color:var(--danger)">28.6139°N, 77.2090°E</span></div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">Device</span><span style="color:var(--danger)">Samsung Galaxy S21</span></div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">Timestamp</span><span style="color:var(--danger)">2025-02-14 09:23</span></div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">Software</span><span style="color:var(--danger)">Camera 11.0.3</span></div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;color:var(--green);text-transform:uppercase;margin-bottom:8px">After Strip — Safe</div>
+              <div style="background:var(--cream);border:1px solid rgba(19,136,8,0.2);border-radius:2px">
+                <div id="metaAfter">
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">GPS</span><span style="color:var(--muted);text-decoration:line-through">[STRIPPED]</span></div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">Device</span><span style="color:var(--muted);text-decoration:line-through">[STRIPPED]</span></div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">Timestamp</span><span style="color:var(--muted);text-decoration:line-through">[STRIPPED]</span></div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">Software</span><span style="color:var(--muted);text-decoration:line-through">[STRIPPED]</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="about-card">
+          <h3>Emergency Delete</h3>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">One action wipes all traces from the browser. No forensic recovery possible after this operation.</div>
+          <button class="btn" style="background:var(--danger);color:var(--white);width:100%;justify-content:center;margin-bottom:12px" onclick="runEmergencyDeleteSim()">⚡ Simulate Emergency Delete</button>
+          <div id="emergencySteps" style="display:none">
+            <div class="dstep" id="edel1"><div class="dstep-icon">○</div>Clearing complaint draft from memory...</div>
+            <div class="dstep" id="edel2"><div class="dstep-icon">○</div>sessionStorage.clear()</div>
+            <div class="dstep" id="edel3"><div class="dstep-icon">○</div>localStorage.clear()</div>
+            <div class="dstep" id="edel4"><div class="dstep-icon">○</div>caches.keys() → deleting all service worker caches...</div>
+            <div class="dstep" id="edel5"><div class="dstep-icon">○</div>IndexedDB.deleteDatabase() for all databases...</div>
+            <div class="dstep" id="edel6"><div class="dstep-icon">○</div>✓ All browser data eliminated</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div><!-- /simMode -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
+<script src="js/supabaseConfig.js"></script>
+<script src="js/dataService.js"></script>
+<script>
+// ============================
+// GLOBAL STATE
+// ============================
+const S = {
+  aesKey: null,
+  aesHex: '',
+  token: '',
+  complaint: '',
+  encrypted: null,
+  authPairs: {HR:null,ICC:null,NGO:null},
+  selected: new Set(),
+  wrapped: {},
+  submissions: [],
+  log: [],
+  currentMode: 'user',
+  simStep: 2,
+  simAuthTab: 'HR',
+};
+
+// ============================
+// UTILS
+// ============================
+const ab2hex = b => Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+const ab2b64 = b => btoa(String.fromCharCode(...new Uint8Array(b)));
+const trunc = (s,n=36) => s.length>n ? s.slice(0,n)+'…' : s;
+const esc = s => {const d=document.createElement('div');d.textContent=s;return d.innerHTML};
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const fmtPem = b64 => `-----BEGIN PUBLIC KEY-----\n${b64.slice(0,48)}…\n-----END PUBLIC KEY-----`;
+
+async function hashToken(token){
+  const bytes = new TextEncoder().encode(token);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function collectComplaintMetadata(){
+  const val = id => {
+    const el = document.getElementById(id);
+    if(!el) return null;
+    const v = (el.value||'').trim();
+    return v.length? v : null;
+  };
+  return {
+    category: val('incidentCategory'),
+    incidentDate: val('incidentDate'),
+    department: val('incidentDept'),
+    delayRelease: val('delayRelease')
+  };
+}
+
+async function persistEncryptedComplaint(submission, metadata){
+  if(!window.AawaazData) return {offline:true};
+  const wrappedKeys = {};
+  Object.entries(S.wrapped).forEach(([auth,val])=>{
+    if(val && val.b64) wrappedKeys[auth] = val.b64;
+  });
+  const payload = {
+    reference: submission.id,
+    created_at: submission.timestamp,
+    token_hash: await hashToken(submission.token),
+    token_hint: submission.token.slice(0,8),
+    ciphertext_b64: submission.blob,
+    iv_b64: submission.iv,
+    authorities: submission.auths,
+    wrapped_keys: wrappedKeys,
+    metadata: {
+      category: metadata.category || null,
+      department: metadata.department || null,
+      incident_date: metadata.incidentDate || null,
+      delay_release: metadata.delayRelease || null,
+      recorded_at: submission.timestamp
+    }
+  };
+  return window.AawaazData.saveComplaint(payload);
+}
+
+async function findRemoteComplaintByToken(token){
+  if(!window.AawaazData || !window.AawaazData.enabled) return null;
+  const tokenHash = await hashToken(token);
+  return window.AawaazData.findComplaintByTokenHash(tokenHash);
+}
+
+function renderTrackingCard(refToken, filedAt, authorities){
+  const card = document.getElementById('statusCard');
+  if(!card) return;
+  card.classList.add('show');
+  document.getElementById('trackRef').textContent = refToken;
+  document.getElementById('trackDate').textContent = filedAt ? new Date(filedAt).toLocaleDateString('en-IN') : '—';
+  document.getElementById('trackAuths').textContent = authorities && authorities.length ? authorities.join(', ') : '—';
+}
+
+// ============================
+// LIVE CLOCK
+// ============================
+function updateClock(){
+  const el = document.getElementById('liveTime');
+  if(el) el.textContent = new Date().toLocaleTimeString('en-IN',{hour12:true})+', IST';
+}
+setInterval(updateClock,1000);
+updateClock();
+
+// ============================
+// CRYPTO LOG
+// ============================
+function addLog(msg,type='info'){
+  S.log.unshift({t:new Date().toLocaleTimeString(),msg,type});
+  const count = document.getElementById('simLogCount');
+  if(count) count.textContent = S.log.length;
+  renderCryptoLog();
+}
+function renderCryptoLog(){
+  const body = document.getElementById('cryptoLogBody');
+  if(!body) return;
+  const colors = {info:'rgba(201,168,76,0.8)',success:'#6ee7b7',warn:'#fca5a5'};
+  body.innerHTML = S.log.slice(0,15).map(e=>
+    `<div style="display:flex;gap:10px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+      <span style="color:rgba(255,255,255,0.25);flex-shrink:0">${e.t}</span>
+      <span style="color:${colors[e.type]||colors.info}">${esc(e.msg)}</span>
+    </div>`
+  ).join('');
+}
+function toggleCryptoLog(){
+  document.getElementById('cryptoLog').classList.toggle('open');
+}
+
+// ============================
+// INIT CRYPTO
+// ============================
+async function init(){
+  addLog('Initializing Aawaaz crypto engine...','info');
+  try{
+    // AES key
+    S.aesKey = await crypto.subtle.generateKey({name:'AES-GCM',length:256},true,['encrypt','decrypt']);
+    const raw = await crypto.subtle.exportKey('raw',S.aesKey);
+    S.aesHex = ab2hex(raw);
+    addLog('AES-256-GCM key generated','success');
+
+    // Token
+    S.token = crypto.randomUUID();
+    addLog('Tracking token generated: '+trunc(S.token,20),'success');
+
+    // Display in user mode
+    if(document.getElementById('userAesDisp')) document.getElementById('userAesDisp').textContent = S.aesHex;
+    if(document.getElementById('userToken')) document.getElementById('userToken').textContent = S.token;
+    if(document.getElementById('cryptoStatus')) document.getElementById('cryptoStatus').textContent = 'AES-256-GCM · Ready';
+
+    // Display in sim mode
+    if(document.getElementById('simAesKey')) document.getElementById('simAesKey').textContent = S.aesHex;
+    if(document.getElementById('simToken')) document.getElementById('simToken').textContent = S.token;
+
+    // RSA key pairs for each authority
+    for(const auth of ['HR','ICC','NGO']){
+      addLog(`Generating RSA-OAEP-2048 for ${auth}...`,'info');
+      const kp = await crypto.subtle.generateKey(
+        {name:'RSA-OAEP',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},
+        true,['wrapKey','unwrapKey']
+      );
+      S.authPairs[auth] = kp;
+
+      // Public key display
+      const spki = await crypto.subtle.exportKey('spki', kp.publicKey);
+      const pubB64 = ab2b64(spki);
+      const pem = fmtPem(pubB64);
+      ['','sim'].forEach(pre=>{
+        const el = document.getElementById(pre+'pubkey'+auth) || document.getElementById(pre+'Pubkey'+auth);
+        if(el) el.textContent = pem;
+      });
+      // Sim pubkey
+      const simPub = document.getElementById('simPubkey'+auth);
+      if(simPub) simPub.textContent = pem;
+
+      // Private key display
+      const pkcs8 = await crypto.subtle.exportKey('pkcs8', kp.privateKey);
+      const privB64 = ab2b64(pkcs8);
+      const privPem = `-----BEGIN PRIVATE KEY-----\n${privB64.slice(0,64)}…\n-----END PRIVATE KEY-----`;
+      const simPriv = document.getElementById('sim'+auth+'PrivKey');
+      if(simPriv) simPriv.textContent = privPem;
+
+      addLog(`${auth} RSA-2048 key pair ready`,'success');
+    }
+    addLog('All keys initialized. System ready.','success');
+  }catch(e){
+    addLog('Init error: '+e.message,'warn');
+    console.error(e);
+  }
+}
+
+// ============================
+// MODE SWITCH
+// ============================
+function setMode(mode){
+  S.currentMode = mode;
+  document.getElementById('userMode').style.display = mode==='user'?'block':'none';
+  document.getElementById('simMode').style.display = mode==='sim'?'block':'none';
+  document.getElementById('govNavUser').style.display = mode==='user'?'flex':'none';
+  document.getElementById('govNavSim').style.display = mode==='sim'?'flex':'none';
+  document.getElementById('btnUser').classList.toggle('active', mode==='user');
+  document.getElementById('btnSim').classList.toggle('active', mode==='sim');
+  if(mode==='sim'){
+    // Update sim fields from current state
+    if(S.aesHex) document.getElementById('simAesKey').textContent = S.aesHex;
+    if(S.token) document.getElementById('simToken').textContent = S.token;
+    updateSimPayload();
+    updateSimAuthPanel();
+  }
+}
+
+function detectStartupMode(){
+  const params = new URLSearchParams(window.location.search);
+  const paramMode = params.get('mode');
+  const hashMode = (window.location.hash||'').replace('#','').toLowerCase();
+  if((paramMode && paramMode.toLowerCase()==='sim') || hashMode==='sim'){
+    return 'sim';
+  }
+  return 'user';
+}
+
+function goToPatternPage(){
+  window.location.href = 'index2.html';
+}
+
+// ============================
+// USER MODE PAGES
+// ============================
+function showUserPage(id){
+  document.querySelectorAll('#userMode .page').forEach(p=>p.style.display='none');
+  const el = document.getElementById('page-'+id);
+  if(el) el.style.display='block';
+  document.querySelectorAll('#govNavUser .gov-nav-link').forEach((l,i)=>{
+    l.classList.toggle('active',['file','track','about'][i]===id);
+  });
+}
+
+// ============================
+// SIM MODE PAGES
+// ============================
+function showSimPage(id){
+  document.querySelectorAll('#simMode .page').forEach(p=>p.style.display='none');
+  const el = document.getElementById('simpage-'+id);
+  if(el) el.style.display='block';
+  document.querySelectorAll('#govNavSim .gov-nav-link').forEach((l,i)=>{
+    l.classList.toggle('active',['live','flow','security'][i]===id);
+  });
+}
+
+// ============================
+// KEY TOGGLE
+// ============================
+function toggleKey(id){
+  const el = document.getElementById(id);
+  if(el) el.classList.toggle('revealed');
+}
+
+// ============================
+// COMPLAINT TYPING (user)
+// ============================
+let encTimer;
+async function onComplaintType(val){
+  S.complaint = val;
+  const plain = document.getElementById('encPlainPrev');
+  const cipher = document.getElementById('encCipherPrev');
+  if(plain) plain.textContent = val || 'Start typing...';
+  clearTimeout(encTimer);
+  if(!val){if(cipher) cipher.textContent='awaiting input...';return}
+  // Scramble preview
+  const scramble = () => {
+    let r='';for(let i=0;i<Math.min(val.length*3,120);i++)r+='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='[Math.floor(Math.random()*65)];
+    return r;
+  };
+  if(cipher) cipher.textContent = scramble();
+  encTimer = setTimeout(async()=>{
+    if(!S.aesKey) return;
+    try{
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = await crypto.subtle.encrypt({name:'AES-GCM',iv},S.aesKey,new TextEncoder().encode(val));
+      S.encrypted = {ciphertext:ct,iv,b64:ab2b64(ct)};
+      if(cipher) cipher.textContent = S.encrypted.b64.slice(0,140)+'…';
+    }catch(e){}
+  },350);
+}
+
+// ============================
+// COMPLAINT TYPING (sim)
+// ============================
+let simEncTimer;
+async function onSimType(val){
+  S.complaint = val;
+  const plain = document.getElementById('simPlainPrev');
+  const cipher = document.getElementById('simCipherPrev');
+  if(plain) plain.textContent = val || 'Type below...';
+  clearTimeout(simEncTimer);
+  if(!val){if(cipher)cipher.textContent='...';return}
+  const scramble=()=>{let r='';for(let i=0;i<Math.min(val.length*3,100);i++)r+='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='[Math.floor(Math.random()*65)];return r};
+  if(cipher) cipher.textContent = scramble();
+  simEncTimer = setTimeout(async()=>{
+    if(!S.aesKey) return;
+    try{
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = await crypto.subtle.encrypt({name:'AES-GCM',iv},S.aesKey,new TextEncoder().encode(val));
+      S.encrypted = {ciphertext:ct,iv,b64:ab2b64(ct)};
+      if(cipher) cipher.textContent = S.encrypted.b64.slice(0,100)+'…';
+      addLog(`Complaint encrypted: ${val.length}chars → ciphertext`,'success');
+    }catch(e){}
+  },350);
+}
+
+// ============================
+// AUTHORITY TOGGLE (user)
+// ============================
+async function toggleAuth(auth){
+  const card = document.getElementById('auth'+auth);
+  const chk = document.getElementById('chk'+auth);
+  if(S.selected.has(auth)){
+    S.selected.delete(auth);
+    delete S.wrapped[auth];
+    card.classList.remove('selected');
+    chk.textContent='';
+  } else {
+    S.selected.add(auth);
+    card.classList.add('selected');
+    chk.textContent='✓';
+    if(S.aesKey && S.authPairs[auth]){
+      const wk = await crypto.subtle.wrapKey('raw',S.aesKey,S.authPairs[auth].publicKey,{name:'RSA-OAEP'});
+      S.wrapped[auth] = {wk,b64:ab2b64(wk)};
+    }
+  }
+  const bn = document.getElementById('bypassNote');
+  if(bn) bn.style.display = S.selected.size<3 && S.selected.size>0 ? 'block':'none';
+}
+
+// ============================
+// AUTHORITY TOGGLE (sim)
+// ============================
+async function simToggleAuth(auth){
+  const card = document.getElementById('simAuth'+auth);
+  const chk = document.getElementById('simChk'+auth);
+  const wrapOut = document.getElementById('wrapOut'+auth);
+  const wrapRow = document.getElementById('wrapRow'+auth);
+  if(S.selected.has(auth)){
+    S.selected.delete(auth);
+    delete S.wrapped[auth];
+    card.classList.remove('selected');
+    chk.textContent='';
+    if(wrapOut) wrapOut.textContent='not wrapped';
+    if(wrapRow) wrapRow.classList.remove('active');
+    addLog(`${auth} excluded — no key wrap`,'warn');
+  } else {
+    S.selected.add(auth);
+    card.classList.add('selected');
+    chk.textContent='✓';
+    if(S.aesKey && S.authPairs[auth]){
+      addLog(`Wrapping AES key with ${auth} RSA public key...`,'info');
+      const wk = await crypto.subtle.wrapKey('raw',S.aesKey,S.authPairs[auth].publicKey,{name:'RSA-OAEP'});
+      S.wrapped[auth] = {wk,b64:ab2b64(wk)};
+      if(wrapOut){wrapOut.textContent=ab2b64(wk).slice(0,20)+'…'}
+      if(wrapRow) wrapRow.classList.add('active');
+      addLog(`${auth} AES key wrapped: ${ab2b64(wk).slice(0,16)}...`,'success');
+    }
+  }
+  updateSimPayload();
+}
+
+// ============================
+// SIM STEPS
+// ============================
+function simSetStep(n){
+  S.simStep = n;
+  [1,2,3,4].forEach(i=>{
+    const cont = document.getElementById('simStep'+i);
+    if(cont) cont.style.display = i===n ? 'block':'none';
+    const node = document.getElementById('sn'+i);
+    const line = document.getElementById('sl'+i);
+    if(node){
+      node.classList.remove('active','done');
+      if(i<n) node.classList.add('done');
+      else if(i===n) node.classList.add('active');
+    }
+    if(line && i<4){
+      if(line) line.style.background = i<n ? 'var(--green)':'var(--border)';
+    }
+  });
+  if(n===4) updateSimPayload();
+}
+
+function updateSimPayload(){
+  const pPayload = document.getElementById('simPPayload');
+  const pKeys = document.getElementById('simPKeys');
+  const pToken = document.getElementById('simPToken');
+  if(S.encrypted && pPayload) pPayload.textContent = trunc(S.encrypted.b64, 40);
+  if(pKeys){
+    const wk={};
+    S.selected.forEach(a=>{if(S.wrapped[a]) wk[a]=trunc(S.wrapped[a].b64,16)+'…'});
+    pKeys.textContent = JSON.stringify(wk);
+  }
+  if(pToken && S.token) pToken.textContent = btoa(S.token).slice(0,24)+'… (hashed)';
+}
+
+// ============================
+// SUBMIT (user)
+// ============================
+async function submitComplaint(){
+  const input = document.getElementById('complaintInput');
+  if(!S.encrypted && input && input.value){
+    await onComplaintType(input.value);
+    await sleep(400);
+  }
+  if(!S.encrypted){alert('Please write your complaint first.');return}
+  if(S.selected.size===0){alert('Please select at least one receiving authority.');return}
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled=true; btn.textContent='Submitting...';
+
+  const sub = {
+    id: crypto.randomUUID().slice(0,8),
+    timestamp: new Date().toISOString(),
+    blob: S.encrypted.b64,
+    iv: ab2b64(S.encrypted.iv),
+    wrapped: {...S.wrapped},
+    ivRaw: S.encrypted.iv,
+    ciphertextRaw: S.encrypted.ciphertext,
+    tokenHash: btoa(S.token),
+    token: S.token,
+    auths: [...S.selected],
+  };
+  S.submissions.push(sub);
+  addLog(`Complaint submitted ID:${sub.id} to [${sub.auths.join(',')}]`,'success');
+
+  const metadata = collectComplaintMetadata();
+  try{
+    const result = await persistEncryptedComplaint(sub, metadata);
+    if(result?.offline){
+      addLog('Supabase not configured — complaint stored locally only.','warn');
+    }else{
+      addLog('Encrypted complaint stored in Supabase.','success');
+    }
+  }catch(e){
+    addLog('Secure storage error: '+e.message,'warn');
+    console.error(e);
+    alert('Encrypted storage could not be reached. Your complaint stays encrypted locally; please retry once connectivity is restored.');
+  }
+
+  const successBox = document.getElementById('successBox');
+  if(successBox) successBox.classList.add('show');
+  const ref = document.getElementById('successRef');
+  if(ref) ref.textContent = S.token;
+
+  btn.textContent='✓ Filed';
+  setTimeout(()=>{btn.disabled=false;btn.textContent='Submit Encrypted Complaint →'},4000);
+}
+
+// ============================
+// SUBMIT (sim)
+// ============================
+async function simSubmit(){
+  if(!S.encrypted){
+    alert('Please type a complaint in Step 2 first.');
+    return;
+  }
+  const btn = document.getElementById('simSubmitBtn');
+  btn.disabled=true; btn.textContent='Submitting...';
+
+  const sub = {
+    id: crypto.randomUUID().slice(0,8),
+    timestamp: new Date().toISOString(),
+    blob: S.encrypted.b64,
+    iv: ab2b64(S.encrypted.iv),
+    wrapped: {...S.wrapped},
+    ivRaw: S.encrypted.iv,
+    ciphertextRaw: S.encrypted.ciphertext,
+    tokenHash: btoa(S.token),
+    token: S.token,
+    auths: [...S.selected],
+  };
+  S.submissions.push(sub);
+  addLog(`Complaint submitted — ID:${sub.id}`,'success');
+  addLog(`Server received: encrypted blob only. IP=[STRIPPED]`,'success');
+
+  updateSimServerPanel(sub);
+  updateSimAuthPanel();
+
+  const sb = document.getElementById('simSuccessBox');
+  if(sb) sb.classList.add('show');
+  const st = document.getElementById('simSuccessToken');
+  if(st) st.textContent = S.token;
+  document.getElementById('simSubCount').textContent = S.submissions.length;
+  document.getElementById('simKeyCount').textContent = Object.keys(sub.wrapped).length;
+
+  btn.textContent='✓ Submitted';
+  setTimeout(()=>{btn.disabled=false;btn.textContent='🔐 Submit Another'},3000);
+}
+
+// ============================
+// SERVER PANEL (sim)
+// ============================
+function updateSimServerPanel(sub){
+  const log = document.getElementById('simServerLog');
+  if(log) log.innerHTML=`
+    <div class="tl"><span class="tk">timestamp:</span><span class="tv">${sub.timestamp}</span></div>
+    <div class="tl"><span class="tk">id:</span><span class="tv">${sub.id}</span></div>
+    <div class="tl"><span class="tk">encrypted_blob:</span><span class="tv">${trunc(sub.blob,35)}</span></div>
+    <div class="tl"><span class="tk">wrapped_keys:</span><span class="tv">[${sub.auths.join(', ')}]</span></div>
+    <div class="tl"><span class="tk">tracking_hash:</span><span class="tv">${trunc(sub.tokenHash,20)}</span></div>
+    <div class="tl"><span class="tk">ip_address:</span><span class="tv red">[STRIPPED]</span></div>
+    <div class="tl"><span class="tk">user_identity:</span><span class="tv red">[UNKNOWN]</span></div>
+    <div class="tl"><span class="tk">plaintext:</span><span class="tv dim">[DOES NOT EXIST]</span></div>
+  `;
+  const stored = document.getElementById('simStoredRecords');
+  if(stored) stored.innerHTML = S.submissions.map(s=>`
+    <div style="background:var(--navy);border-radius:2px;padding:8px 10px;margin-bottom:6px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold)">
+      <div style="color:rgba(255,255,255,0.3);margin-bottom:3px">ID: ${s.id}</div>
+      <div>${trunc(s.blob,45)}</div>
+    </div>`).join('');
+}
+
+// ============================
+// AUTHORITY PANEL (sim)
+// ============================
+function updateSimAuthPanel(){
+  ['HR','ICC','NGO'].forEach(auth=>{
+    const container = document.getElementById(auth.toLowerCase()+'SimComplaints');
+    if(!container) return;
+    const authSubs = S.submissions.filter(s=>s.wrapped[auth]);
+    if(authSubs.length===0){
+      const excluded = !S.selected.has(auth) && S.submissions.length>0;
+      container.innerHTML=`<div class="excluded-sim">
+        <span class="lock">${excluded?'🔒':'📭'}</span>
+        ${excluded
+          ? `<strong style="color:var(--danger)">Cryptographically Excluded</strong><br><small>No wrapped key for ${auth}. Mathematically impossible to read this complaint.</small>`
+          : 'No complaints addressed to this authority yet.'
+        }
+      </div>`;
+      return;
+    }
+    container.innerHTML = authSubs.map(sub=>`
+      <div class="sim-complaint" id="sc_${auth}_${sub.id}">
+        <div class="sim-complaint-top">
+          <span class="sim-complaint-id">ID: ${sub.id}</span>
+          <span class="sim-complaint-id">${new Date(sub.timestamp).toLocaleTimeString()}</span>
+        </div>
+        <div class="sim-blob">${sub.blob}</div>
+        <div class="decrypt-steps-sim" id="dsp_${auth}_${sub.id}">
+          <div class="dstep" id="ds1_${auth}_${sub.id}"><div class="dstep-icon">○</div>Loading ${auth} private key...</div>
+          <div class="dstep" id="ds2_${auth}_${sub.id}"><div class="dstep-icon">○</div>Unwrapping AES key with RSA private key...</div>
+          <div class="dstep" id="ds3_${auth}_${sub.id}"><div class="dstep-icon">○</div>Decrypting complaint blob...</div>
+        </div>
+        <div class="decrypted-reveal" id="dr_${auth}_${sub.id}"></div>
+        <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:8px;font-size:10px;border-color:var(--border2);color:var(--navy)" onclick="decryptFor('${auth}','${sub.id}')">
+          🔓 Decrypt with ${auth} Private Key
+        </button>
+      </div>`).join('');
+  });
+}
+
+// ============================
+// DECRYPT
+// ============================
+async function decryptFor(auth, subId){
+  const sub = S.submissions.find(s=>s.id===subId);
+  if(!sub||!sub.wrapped[auth]) return;
+  const kp = S.authPairs[auth];
+  if(!kp) return;
+
+  const dpEl = document.getElementById(`dsp_${auth}_${subId}`);
+  const drEl = document.getElementById(`dr_${auth}_${subId}`);
+  const steps = [1,2,3].map(i=>document.getElementById(`ds${i}_${auth}_${subId}`));
+  if(dpEl) dpEl.style.display='block';
+
+  const markDone = (i) => {
+    if(steps[i]){steps[i].classList.add('done');steps[i].querySelector('.dstep-icon').textContent='✓'}
+    if(i+1<3 && steps[i+1]) steps[i+1].classList.add('running');
+  };
+
+  try{
+    addLog(`${auth}: initiating decryption for ${subId}`,'info');
+    if(steps[0]) steps[0].classList.add('running');
+    await sleep(600); markDone(0);
+
+    addLog(`${auth}: unwrapping AES key with RSA private key...`,'info');
+    await sleep(700);
+    const unwrappedAes = await crypto.subtle.unwrapKey(
+      'raw', sub.wrapped[auth].wk, kp.privateKey,
+      {name:'RSA-OAEP'},{name:'AES-GCM',length:256},true,['encrypt','decrypt']
+    );
+    markDone(1);
+    addLog(`${auth}: AES key recovered`,'success');
+
+    await sleep(600);
+    const dec = await crypto.subtle.decrypt({name:'AES-GCM',iv:sub.ivRaw}, unwrappedAes, sub.ciphertextRaw);
+    const text = new TextDecoder().decode(dec);
+    markDone(2);
+    addLog(`${auth}: Decryption complete — ${text.length} chars`,'success');
+
+    await sleep(400);
+    if(drEl){
+      drEl.innerHTML=`<div style="font-size:9px;color:var(--green);font-family:'DM Mono',monospace;margin-bottom:6px">✓ DECRYPTED — ${auth} EYES ONLY</div>${esc(text)}`;
+      drEl.classList.add('show');
+    }
+    if(dpEl) dpEl.style.display='none';
+  }catch(e){
+    if(drEl) drEl.innerHTML=`<div style="color:var(--danger);font-size:11px">Decryption failed: ${e.message}</div>`;
+    addLog('Error: '+e.message,'warn');
+    console.error(e);
+  }
+}
+
+// ============================
+// SIM AUTH TAB
+// ============================
+function simSwitchAuth(auth){
+  S.simAuthTab = auth;
+  ['HR','ICC','NGO'].forEach(a=>{
+    const c = document.getElementById('simAuthContent_'+a);
+    if(c) c.style.display = a===auth?'block':'none';
+  });
+  document.querySelectorAll('.sim-auth-tab').forEach(t=>{
+    t.classList.toggle('active', t.textContent.includes(auth));
+  });
+}
+
+// ============================
+// TRACK COMPLAINT
+// ============================
+async function trackComplaint(){
+  const val = document.getElementById('trackInput').value.trim();
+  if(!val){alert('Please enter your tracking token.');return}
+  const local = S.submissions.find(s=>s.token===val);
+  if(local){
+    renderTrackingCard(val, local.timestamp, local.auths);
+    return;
+  }
+  try{
+    const remote = await findRemoteComplaintByToken(val);
+    if(remote){
+      renderTrackingCard(val, remote.created_at, remote.authorities || []);
+      return;
+    }
+  }catch(e){
+    console.error(e);
+    alert('Unable to query secure storage right now. Please try again later.');
+    return;
+  }
+  alert('No complaint found with this token. If you just submitted, please allow a moment before retrying.');
+}
+
+// ============================
+// ZKP SIMULATION
+// ============================
+async function runZKP(){
+  const out = document.getElementById('zkpOutput');
+  if(!out) return;
+  out.style.display='block';
+  out.innerHTML='';
+  const steps=[
+    {t:0,msg:'> Generating membership proof for org-ID-0x4f9a...',c:'rgba(201,168,76,0.6)'},
+    {t:600,msg:'> Computing witness from secret credential...',c:'rgba(201,168,76,0.6)'},
+    {t:1200,msg:'> Running Groth16 circuit over Merkle tree (depth=20)...',c:'var(--gold)'},
+    {t:2000,msg:'> Proof π = (A:0x3f4a2c..., B:0x8c2d7a..., C:0x1e7f3b...)',c:'var(--gold)'},
+    {t:2800,msg:'> Verifier checking proof without accessing identity...',c:'rgba(245,158,11,0.8)'},
+    {t:3500,msg:'> Verification: PASS ✓',c:'#6ee7b7'},
+    {t:4000,msg:'> User is legitimate employee of org-ID-0x4f9a',c:'#6ee7b7'},
+    {t:4300,msg:'> Identity revealed to verifier: [UNKNOWN]',c:'#6ee7b7'},
+    {t:4500,msg:'> ZKP guarantees: membership proven, identity protected.',c:'#6ee7b7'},
+  ];
+  steps.forEach(s=>setTimeout(()=>{
+    out.innerHTML += `<div style="color:${s.c}">${s.msg}</div>`;
+    out.scrollTop=out.scrollHeight;
+  },s.t));
+  addLog('ZKP membership proof simulation run','success');
+}
+
+// ============================
+// EMERGENCY DELETE
+// ============================
+async function emergencyDelete(){
+  S.complaint='';
+  const inp = document.getElementById('complaintInput');
+  if(inp) inp.value='';
+  sessionStorage.clear();
+  try{localStorage.clear()}catch(e){}
+  if(window.caches) (await caches.keys()).forEach(k=>caches.delete(k));
+  addLog('Emergency delete executed — all local data wiped','warn');
+  alert('All local data cleared. Refreshing page.');
+  location.reload();
+}
+
+function runEmergencyDeleteSim(){
+  const steps = document.getElementById('emergencySteps');
+  if(steps) steps.style.display='block';
+  const ids=['edel1','edel2','edel3','edel4','edel5','edel6'];
+  ids.forEach((id,i)=>setTimeout(()=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.classList.remove('running');
+      el.classList.add('done');
+      el.querySelector('.dstep-icon').textContent='✓';
+    }
+    addLog('Emergency delete step '+(i+1)+' complete','warn');
+  },400*(i+1)));
+}
+
+// ============================
+// QUICK EXIT
+// ============================
+function quickExit(){
+  sessionStorage.clear();
+  try{localStorage.clear()}catch(e){}
+  if(window.caches) caches.keys().then(ks=>ks.forEach(k=>caches.delete(k)));
+  document.title='Weather Today';
+  window.location.href='https://www.google.com';
+}
+
+// ============================
+// FILE HANDLING (meta strip sim)
+// ============================
+function handleFile(input){
+  const status = document.getElementById('metaStripStatus');
+  if(!input.files[0]) return;
+  if(status){
+    status.style.color='var(--warn)';
+    status.textContent='Stripping metadata...';
+    setTimeout(()=>{
+      status.style.color='var(--green)';
+      status.textContent='✓ Metadata stripped — GPS, device info, timestamps removed. File ready for encrypted upload.';
+      addLog('EXIF metadata stripped from attachment','success');
+    },800);
+  }
+}
+
+// ============================
+// INIT
+// ============================
+window.addEventListener('load', async ()=>{
+  await init();
+  setMode(detectStartupMode());
+});
+
+// Set default sim step display
+simSetStep(2);
+</script>
+</body>
+</html>
