@@ -1,14 +1,1317 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Aawaaz — Encrypted Grievance Portal</title>
-    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=DM+Mono:wght@300;400;500&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aawaaz — Encrypted Grievance Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=DM+Mono:wght@300;400;500&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="/src/main.jsx"></script>
+
+<!-- LEGACY MODE SWITCHER (keeping for backward compat) -->
+<div id="modeSwitcher" style="display:none">
+  <div class="mode-brand">
+    <img src="/image-removebg-preview.png" alt="Aawaaz Logo" style="height: 95px; width: auto;">
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <button id="stealthBtn" onclick="toggleStealthMode()" title="Stealth Mode (Ctrl+Space ×3)" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:4px 12px;color:rgba(255,255,255,0.5);font-size:10px;cursor:pointer;font-family:'DM Mono',monospace;display:flex;align-items:center;gap:5px;transition:all 0.25s;letter-spacing:0.04em"><span>🥷</span> STEALTH</button>
+    <span class="mode-label">MODE</span>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btnUser" onclick="setMode('user')">User Portal</button>
+      <button class="mode-btn" id="btnSim" onclick="setMode('sim')">Simulation</button>
+      <button class="mode-btn" id="btnAuth" onclick="setMode('authority')">Authority</button>
+      <button class="mode-btn" id="btnPattern" onclick="goToPatternPage()">Pattern Detection</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div id="govHeader">
+  <div class="gov-top">
+    <div class="gov-logo-area">
+      <img src="/image-removebg-preview.png" alt="Aawaaz Logo" style="height: 85px; width: auto; margin-right: 12px;">
+      <div class="gov-titles">
+        <div class="gov-main-title" style="display: none;">Aawaaz</div>
+        <div class="gov-sub-title">Encrypted Grievance Redressal &nbsp;·&nbsp; <em>Secure · Anonymous · End-to-End</em></div>
+      </div>
+    </div>
+    <div class="gov-right">
+      <div class="secure-badge">
+        <div class="secure-dot"></div>
+        <span>AES-256-GCM</span>
+      </div>
+      <div class="secure-badge">
+        🔒 E2EE Encrypted
+      </div>
+      <div id="liveTime" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LEFT SIDEBAR NAV - COLLAPSIBLE -->
+<div id="navSidebar">
+  <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle Sidebar">
+    <span class="toggle-icon">◀</span>
+  </button>
+  
+  <!-- PRIVACY STATUS INDICATOR -->
+  <div class="privacy-status" id="privacyStatus">
+    <div class="privacy-icon" id="privacyIcon">🔒</div>
+    <div class="privacy-info">
+      <div class="privacy-label">Connection</div>
+      <div class="privacy-value" id="privacyValue">Checking...</div>
+    </div>
+    <div class="privacy-indicator" id="privacyIndicator"></div>
+  </div>
+
+  <div class="gov-nav" id="govNavUser">
+    <div class="nav-section-label">COMPLAINT</div>
+    <div class="gov-nav-link active" onclick="showUserPage('file')"><span class="nav-icon">⚡</span><span class="nav-text">New Report</span></div>
+    <div class="gov-nav-link" onclick="showUserPage('track')"><span class="nav-icon">🔍</span><span class="nav-text">Track Status</span></div>
+    <div class="nav-section-label">SECURITY</div>
+    <div class="gov-nav-link" onclick="showUserPage('integrity')"><span class="nav-icon">🛡️</span><span class="nav-text">Integrity Check</span></div>
+    <div class="gov-nav-link" onclick="showUserPage('logs')"><span class="nav-icon">📜</span><span class="nav-text">Activity Logs</span></div>
+    <div class="nav-section-label">INFO</div>
+    <div class="gov-nav-link" onclick="showUserPage('about')"><span class="nav-icon">ℹ️</span><span class="nav-text">About</span></div>
+    <div class="gov-nav-link" onclick="showUserPage('settings')"><span class="nav-icon">⚙️</span><span class="nav-text">Settings</span></div>
+  </div>
+  <div class="gov-nav" id="govNavSim" style="display:none">
+    <div class="nav-section-label">SIMULATION</div>
+    <div class="gov-nav-link active" onclick="showSimPage('live')"><span class="nav-icon">⚡</span><span class="nav-text">Live Demo</span></div>
+    <div class="gov-nav-link" onclick="showSimPage('flow')"><span class="nav-icon">🔄</span><span class="nav-text">Flow</span></div>
+    <div class="gov-nav-link" onclick="showSimPage('security')"><span class="nav-icon">🔐</span><span class="nav-text">Proofs</span></div>
+  </div>
+  <div class="gov-nav" id="govNavAuth" style="display:none">
+    <div class="nav-section-label">AUTHORITY</div>
+    <div class="gov-nav-link active" onclick="showAuthPage('review')"><span class="nav-icon">📋</span><span class="nav-text">Review</span></div>
+    <div class="gov-nav-link" onclick="showAuthPage('stats')"><span class="nav-icon">📊</span><span class="nav-text">Stats</span></div>
+    <div class="gov-nav-link" onclick="showAuthPage('auditlog')"><span class="nav-icon">📜</span><span class="nav-text">Audit Log</span></div>
+  </div>
+</div>
+
+<!-- QUICK EXIT -->
+<button id="quickExit" onclick="quickExit()">
+  <span>✕</span>
+  <span class="qt">Quick Exit</span>
+</button>
+
+
+
+<!-- ============================================================ -->
+<!--  USER MODE                                                    -->
+<!-- ============================================================ -->
+<div id="userMode">
+
+  <!-- FILE COMPLAINT -->
+  <div id="page-file" class="page active">
+    <div class="hero-section">
+      <div class="hero-badge">🔐 END-TO-END ENCRYPTED</div>
+      <h1 class="hero-title">Speak Up.<br><span class="gradient-text">Stay Protected.</span></h1>
+      <p class="hero-sub">Your voice matters. File anonymous complaints with military-grade encryption. Zero tracking. Zero compromise.</p>
+      
+      <!-- DIGITAL SIGNATURE INFO -->
+      <div class="signature-badge">
+        <div class="sig-icon">✍️</div>
+        <div class="sig-info">
+          <span class="sig-label">Digital Signature</span>
+          <span class="sig-hash" id="complaintHash">SHA-256 hash will be generated</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- STEP 1: Incident Details -->
+      <div class="form-card">
+        <div class="card-header">
+          <div class="step-badge">01</div>
+          <div class="card-title">What Happened?</div>
+          <div class="card-sub">All fields encrypted locally before transmission</div>
+        </div>
+        <div class="card-body">
+          <div class="field-group">
+            <label class="field-label">Category</label>
+            <select class="field-input modern-select" id="incidentCategory">
+              <option value="">Select incident type...</option>
+              <option>🚨 Workplace Harassment</option>
+              <option>⚠️ Sexual Harassment (POSH)</option>
+              <option>🎯 Discrimination</option>
+              <option>💼 Wrongful Termination</option>
+              <option>🔥 Hostile Environment</option>
+              <option>📢 Whistleblower Report</option>
+              <option>📋 Other</option>
+            </select>
+          </div>
+          
+          <div class="field-group">
+            <label class="field-label">Your Report</label>
+            <textarea class="field-input modern-textarea" id="complaintInput" placeholder="Describe what happened in detail. Include dates, locations, people involved, and any evidence you have..." oninput="onComplaintType(this.value)"></textarea>
+            <div class="char-counter"><span id="charCount">0</span> characters encrypted</div>
+          </div>
+
+          <!-- Attach Evidence — right below complaint text -->
+          <div class="field-group" style="margin-top: 8px;">
+            <label class="field-label" style="font-size: 1rem;">📎 Attach Evidence <span class="optional">(photos, PDFs)</span></label>
+            <div style="position: relative; border: 2px dashed var(--border); border-radius: 10px; padding: 18px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s;" 
+                 onclick="this.querySelector('input').click()" 
+                 onmouseenter="this.style.borderColor='var(--accent)'; this.style.background='rgba(99,102,241,0.04)'" 
+                 onmouseleave="this.style.borderColor='var(--border)'; this.style.background='transparent'">
+              <input type="file" style="display:none" onchange="handleFile(this)" accept="image/jpeg,image/png,image/gif,.pdf">
+              <div style="font-size: 2rem; margin-bottom: 4px;">📸</div>
+              <div style="font-weight: 600; color: var(--ink);">Click to attach photos or documents</div>
+              <div style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;">JPG, PNG, GIF, PDF — Max 10MB — EXIF metadata auto-stripped</div>
+            </div>
+            <div class="field-hint" id="metaStripStatus" style="margin-top: 6px;"></div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label">When</label>
+              <input type="date" class="field-input" id="incidentDate">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Where <span class="optional">(optional)</span></label>
+              <input type="text" class="field-input" id="incidentDept" placeholder="Department, location...">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: Authorities -->
+      <div class="form-card">
+        <div class="card-header">
+          <div class="step-badge">02</div>
+          <div class="card-title">Who Should Know?</div>
+          <div class="card-sub">Only selected authorities can decrypt your report</div>
+        </div>
+        <div class="card-body">
+          <div class="authority-cards">
+            <div class="auth-card" id="authHR" onclick="toggleAuth('HR')">
+              <div class="auth-check" id="chkHR"></div>
+              <div class="auth-icon">🏢</div>
+              <div class="auth-name">Internal HR</div>
+              <div class="auth-desc">Human Resources dept. First line of response.</div>
+            </div>
+            <div class="auth-card" id="authICC" onclick="toggleAuth('ICC')">
+              <div class="auth-check" id="chkICC"></div>
+              <div class="auth-icon">⚖️</div>
+              <div class="auth-name">ICC Panel</div>
+              <div class="auth-desc">POSH Act mandated committee.</div>
+            </div>
+            <div class="auth-card" id="authNGO" onclick="toggleAuth('NGO')">
+              <div class="auth-check" id="chkNGO"></div>
+              <div class="auth-icon">🌿</div>
+              <div class="auth-name">External NGO</div>
+              <div class="auth-desc">Independent. Bypass internal power structures.</div>
+            </div>
+          </div>
+          <div class="bypass-alert" id="bypassNote">
+            <span class="bypass-icon">⚡</span>
+            <span>Bypass Mode: Excluded authorities have zero mathematical access</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: Options -->
+      <div class="form-card">
+        <div class="card-header">
+          <div class="step-badge">03</div>
+          <div class="card-title">Advanced Options</div>
+          <div class="card-sub">Time-lock settings</div>
+        </div>
+        <div class="card-body">
+          <div class="field-group">
+            <label class="field-label">⏰ Delayed Release</label>
+            <input type="datetime-local" class="field-input" id="delayRelease">
+            <div class="field-hint">Complaint stays encrypted until this time</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBMIT SECTION -->
+      <div class="submit-section">
+        <div class="submit-left">
+          <button class="btn-ghost" onclick="emergencyDelete()">🗑️ Clear All</button>
+        </div>
+        <div class="submit-right">
+          <button class="btn-glow" id="submitBtn" onclick="submitComplaint()">
+            <span>Submit Encrypted Report</span>
+            <span class="btn-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ENCRYPTED PREVIEW -->
+      <div class="cipher-preview">
+        <div class="cipher-header">
+          <span class="cipher-dot"></span>
+          <span>ENCRYPTED OUTPUT — What leaves your device</span>
+        </div>
+        <div class="cipher-body" id="encCipherPrev">awaiting input...</div>
+      </div>
+
+      <div class="success-box" id="successBox">
+        <div class="success-stamp">✓</div>
+        <div class="success-title">Complaint Filed Successfully</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Your Reference Number / Tracking Token:</div>
+        <div class="success-ref" id="successRef">—</div>
+        <div class="success-note">Save this reference number. It is the only way to track your complaint status. No personal information was stored or transmitted. Your complaint is encrypted and awaiting review by the authorities you selected.</div>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
+          <button class="btn btn-primary" onclick="showUserPage('track')">Backup Your Key →</button>
+          <button class="btn btn-outline" onclick="window.print()">Print Reference</button>
+        </div>
+      </div>
+
+      <!-- CRYPTO KEY DISPLAY -->
+      <div style="max-width:900px;margin:60px auto 0;padding:0 20px;">
+        <div class="crypto-section">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+            <div>
+              <div class="crypto-section-label">Your Encryption Key (AES-256)</div>
+              <div class="crypto-key-display" id="userAesDisp" style="font-size:13px;min-height:28px">Generating...</div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="reveal-toggle" onclick="toggleKey('userAesDisp')" style="flex:1">👁 Show / Hide</button>
+                <button class="reveal-toggle" onclick="copyToClipboard('userAesDisp', this)" style="flex:1">📋 Copy</button>
+              </div>
+            </div>
+            <div>
+              <div class="crypto-section-label">Your Tracking Token</div>
+              <div class="token-value-text" id="userToken" style="font-size:13px;min-height:28px">Generating...</div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="reveal-toggle" onclick="copyToClipboard('userToken', this)" style="flex:1">📋 Copy Token</button>
+              </div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:6px">⚠ Save to track your complaint. No login required.</div>
+            </div>
+          </div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.08);display:flex;gap:10px;flex-wrap:wrap;font-size:11px">
+            <span class="stamp" style="color:var(--gold);border-color:var(--gold);padding:3px 10px">✓ RAM Only</span>
+            <span class="stamp" style="color:rgba(255,255,255,0.4);border-color:rgba(255,255,255,0.15);padding:3px 10px">✗ No Storage</span>
+            <span class="stamp" style="color:rgba(255,255,255,0.4);border-color:rgba(255,255,255,0.15);padding:3px 10px">✗ No Cookies</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TRACK -->
+  <div id="page-track" class="page" style="display:none">
+    <div class="page-band">
+      <div>
+        <div class="page-band-title">Track Your <span>Complaint</span></div>
+        <div class="page-band-sub">Enter your tracking token. No personal information required.</div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="track-form">
+        <h3>Complaint Status Enquiry</h3>
+        <div class="field-group">
+          <label class="field-label">Tracking Token <span class="req">*</span></label>
+          <div class="field-note">The UUID token issued to you at the time of complaint submission.</div>
+          <input type="text" class="field-input" id="trackInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="font-family:'DM Mono',monospace">
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn btn-primary" onclick="trackComplaint()">Fetch Status →</button>
+          <button class="btn btn-outline" onclick="forgotKey()" id="forgotKeyBtn">🔑 Forgot Key</button>
+        </div>
+
+        <div class="status-card" id="statusCard">
+          <div class="status-badge">🟢 Active — Under Review</div>
+          <div style="font-size:13px;color:var(--ink);margin-bottom:8px;font-family:'Crimson Pro',serif;font-size:16px">Complaint Reference: <strong id="trackRef">—</strong></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:11px;color:var(--muted)">
+            <div><strong style="color:var(--ink);display:block">Filed On</strong><span id="trackDate">—</span></div>
+            <div><strong style="color:var(--ink);display:block">Authorities Notified</strong><span id="trackAuths">—</span></div>
+            <div><strong style="color:var(--ink);display:block">Current Status</strong><span style="color:var(--warn)" id="trackStatus">Under Review</span></div>
+            <div><strong style="color:var(--ink);display:block">Encrypted</strong><span style="color:var(--green)">✓ Yes — AES-256-GCM</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABOUT -->
+  <div id="page-about" class="page" style="display:none">
+    <div class="page-band">
+      <div>
+        <div class="page-band-title">About <span>Aawaaz</span></div>
+        <div class="page-band-sub">Privacy-first grievance redressal — built on cryptographic guarantees, not policy promises.</div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="about-grid">
+        <div>
+          <div class="about-card" style="margin-bottom:20px">
+            <h3>Security Architecture</h3>
+            <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">Aawaaz uses a layered cryptographic architecture to ensure that even if the server is fully compromised, your complaint remains unreadable. No policy document — mathematical proof.</p>
+            <div class="feature-list-item">
+              <div class="feature-icon">🔐</div>
+              <div>
+                <div class="feature-text-title">AES-256-GCM Encryption</div>
+                <div class="feature-text-desc">Military-grade symmetric encryption performed entirely in your browser using the Web Crypto API. Your complaint is encrypted before a single byte leaves your device.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">🔑</div>
+              <div>
+                <div class="feature-text-title">RSA-OAEP Key Wrapping</div>
+                <div class="feature-text-desc">Your AES key is encrypted (wrapped) with each selected authority's RSA-2048 public key. Only they can unwrap it using their private key — which never touches the server.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">🎯</div>
+              <div>
+                <div class="feature-text-title">Authority Bypass Control</div>
+                <div class="feature-text-desc">You choose who receives your complaint. Unselected authorities receive no wrapped key — they are mathematically excluded regardless of their server access level.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">🫥</div>
+              <div>
+                <div class="feature-text-title">Zero Identity Architecture</div>
+                <div class="feature-text-desc">No name, email, phone, or IP address is collected. Your tracking token is a random UUID. Even Aawaaz cannot identify you.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">🧮</div>
+              <div>
+                <div class="feature-text-title">Zero Knowledge Proofs</div>
+                <div class="feature-text-desc">Prove organizational membership without revealing identity using ZKP circuits. Verify your complaint is legitimate without doxxing yourself.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">📷</div>
+              <div>
+                <div class="feature-text-title">EXIF Metadata Stripping</div>
+                <div class="feature-text-desc">Photos contain GPS coordinates, device model, and timestamps. Aawaaz strips all metadata via canvas redraw before encryption. Your location remains yours.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="about-card" style="margin-bottom:16px">
+            <h3>Safety Features</h3>
+            <div class="feature-list-item">
+              <div class="feature-icon">🥷</div>
+              <div>
+                <div class="feature-text-title">Stealth Mode</div>
+                <div class="feature-text-desc">Tab title and favicon disguise the portal as a neutral page if someone looks over your shoulder.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">⚡</div>
+              <div>
+                <div class="feature-text-title">Quick Exit</div>
+                <div class="feature-text-desc">One click wipes all data and redirects to a neutral site. No trace in browser history.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">⏰</div>
+              <div>
+                <div class="feature-text-title">Delayed Release</div>
+                <div class="feature-text-desc">Schedule when your complaint is released to authorities. Acts as a safety mechanism — cancel anytime with your tracking token.</div>
+              </div>
+            </div>
+            <div class="feature-list-item">
+              <div class="feature-icon">🌐</div>
+              <div>
+                <div class="feature-text-title">IP Stripping</div>
+                <div class="feature-text-desc">Requests route through a reverse proxy that strips all IP headers. The server log contains no user IP addresses.</div>
+              </div>
+            </div>
+          </div>
+          <div class="about-card">
+            <h3>Legal Basis</h3>
+            <p style="font-size:12px;color:var(--muted);line-height:1.6">Built in compliance with:</p>
+            <ul style="font-size:11px;color:var(--ink2);line-height:2;padding-left:16px;margin-top:8px">
+              <li>POSH Act, 2013</li>
+              <li>Information Technology Act, 2000</li>
+              <li>Digital Personal Data Protection Act, 2023</li>
+              <li>Vishakha Guidelines</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTEGRITY CHECK PAGE -->
+  <div id="page-integrity" class="page" style="display:none">
+    <div class="hero-section compact">
+      <div class="hero-badge">🛡️ TAMPER DETECTION</div>
+      <h1 class="hero-title">Verify <span class="gradient-text">Integrity</span></h1>
+      <p class="hero-sub">Check if your complaint has been altered using cryptographic proof</p>
+    </div>
+    <div class="content">
+      <div class="form-card">
+        <div class="card-header">
+          <div class="card-title">Digital Signature Verification</div>
+          <div class="card-sub">Every complaint generates a unique SHA-256 hash stored in a private ledger</div>
+        </div>
+        <div class="card-body">
+          <div class="field-group">
+            <label class="field-label">Complaint Token</label>
+            <input type="text" class="field-input" id="integrityToken" placeholder="Enter your tracking token...">
+          </div>
+          <button class="btn-glow" onclick="verifyIntegrity()" style="margin-top:16px">
+            <span>Verify Integrity</span>
+            <span class="btn-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- MERKLE TREE VISUALIZATION -->
+      <div class="merkle-section" id="merkleSection" style="display:none">
+        <div class="card-header">
+          <div class="card-title">Merkle Tree Proof</div>
+          <div class="card-sub">Tamper-evident log structure — any modification breaks the chain</div>
+        </div>
+        <div class="merkle-visual">
+          <div class="merkle-root">
+            <div class="merkle-node root">
+              <div class="node-label">ROOT</div>
+              <div class="node-hash" id="merkleRoot">—</div>
+            </div>
+          </div>
+          <div class="merkle-branches">
+            <div class="merkle-node branch">
+              <div class="node-label">L</div>
+              <div class="node-hash" id="merkleBranchL">—</div>
+            </div>
+            <div class="merkle-node branch">
+              <div class="node-label">R</div>
+              <div class="node-hash" id="merkleBranchR">—</div>
+            </div>
+          </div>
+          <div class="merkle-leaves">
+            <div class="merkle-node leaf">
+              <div class="node-hash" id="merkleLeaf1">—</div>
+            </div>
+            <div class="merkle-node leaf highlight">
+              <div class="node-label">YOUR COMPLAINT</div>
+              <div class="node-hash" id="merkleLeafYours">—</div>
+            </div>
+            <div class="merkle-node leaf">
+              <div class="node-hash" id="merkleLeaf3">—</div>
+            </div>
+            <div class="merkle-node leaf">
+              <div class="node-hash" id="merkleLeaf4">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="integrity-result" id="integrityResult">
+          <div class="result-icon" id="integrityIcon">—</div>
+          <div class="result-text" id="integrityText">Awaiting verification...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY LOGS PAGE -->
+  <div id="page-logs" class="page" style="display:none">
+    <div class="hero-section compact">
+      <div class="hero-badge">📜 TRANSPARENCY</div>
+      <h1 class="hero-title">Authority <span class="gradient-text">Activity</span></h1>
+      <p class="hero-sub">Track all actions taken on your complaint — immutable audit trail</p>
+    </div>
+    <div class="content">
+      <div class="form-card">
+        <div class="card-header">
+          <div class="card-title">View Activity Logs</div>
+          <div class="card-sub">Enter your token to see all authority actions on your complaint</div>
+        </div>
+        <div class="card-body">
+          <div class="field-row">
+            <div class="field-group" style="flex:1">
+              <input type="text" class="field-input" id="activityToken" placeholder="Enter tracking token...">
+            </div>
+            <button class="btn-glow" onclick="fetchActivityLogs()" style="margin:0">
+              <span>Fetch Logs</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVITY TIMELINE -->
+      <div class="activity-log-container" id="activityLogContainer" style="display:none">
+        <div class="log-header">
+          <span class="log-title">Audit Trail</span>
+          <span class="log-count" id="logCount">0 entries</span>
+        </div>
+        <div class="activity-timeline" id="activityTimeline">
+          <!-- Logs will be inserted here -->
+        </div>
+      </div>
+
+      <!-- AUTHORITY ACTIONS LEGEND -->
+      <div class="form-card" style="margin-top:24px">
+        <div class="card-header">
+          <div class="card-title">Action Types</div>
+        </div>
+        <div class="card-body">
+          <div class="action-legend">
+            <div class="legend-item"><span class="legend-dot view"></span>Viewed</div>
+            <div class="legend-item"><span class="legend-dot decrypt"></span>Decrypted</div>
+            <div class="legend-item"><span class="legend-dot action"></span>Action Taken</div>
+            <div class="legend-item"><span class="legend-dot forward"></span>Forwarded</div>
+            <div class="legend-item"><span class="legend-dot resolve"></span>Resolved</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS PAGE -->
+  <div id="page-settings" class="page" style="display:none">
+    <div class="page-band">
+      <div>
+        <div class="page-band-title">Settings</div>
+        <div class="page-band-sub">Customize your Aawaaz experience and security preferences.</div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="settings-grid">
+        <div class="settings-card">
+          <h3>🥷 Stealth Mode Preferences</h3>
+          <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:20px">Configure how you want to activate stealth mode for emergency situations.</p>
+          
+          <div class="setting-item">
+            <label for="stealthShortcut" style="font-weight:600;color:var(--ink);margin-bottom:8px;display:block">Activation Shortcut</label>
+            <select id="stealthShortcut" class="form-control" style="margin-bottom:12px" onchange="updateStealthSetting()">
+              <option value="ctrl-space-3">Ctrl + Space (×3)</option>
+              <option value="ctrl-shift-s">Ctrl + Shift + S</option>
+              <option value="ctrl-alt-h">Ctrl + Alt + H</option>
+              <option value="alt-shift-x">Alt + Shift + X</option>
+              <option value="f9-3">F9 Key (×3)</option>
+              <option value="escape-3">Escape Key (×3)</option>
+              <option value="custom">Custom Shortcut</option>
+            </select>
+            
+            <div id="customShortcutSetup" style="display:none;margin-top:12px;padding:12px;background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);border-radius:6px">
+              <label for="customKeys" style="font-weight:600;font-size:11px;color:var(--ink);margin-bottom:6px;display:block">Define Your Custom Shortcut:</label>
+              <input type="text" id="customKeys" class="form-control" placeholder="e.g., ctrl+alt+z or shift+f12" style="margin-bottom:8px;font-size:11px">
+              <div style="font-size:10px;color:var(--muted);line-height:1.4">Format: modifier+key (ctrl, alt, shift + any key/f1-f12). Press Enter to save.</div>
+              <button onclick="saveCustomShortcut()" style="background:var(--saffron);color:white;border:none;padding:4px 8px;border-radius:4px;font-size:10px;margin-top:6px;cursor:pointer">Save Custom</button>
+            </div>
+            
+            <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px">
+              Current shortcut: <span id="currentShortcut" style="font-family:'DM Mono',monospace;background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:3px">Ctrl + Space (×3)</span>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <label style="font-weight:600;color:var(--ink);margin-bottom:8px;display:block">Test Shortcut</label>
+            <button class="btn btn-outline" onclick="testStealthShortcut()" style="font-size:12px;padding:8px 16px">🧪 Test Current Shortcut</button>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">Press the button then try your configured shortcut to verify it works.</div>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3>🔐 Authority Testing Keys</h3>
+          <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:20px">Private keys for testing authority decryption (visible in Simulation mode).</p>
+          
+          <div class="setting-item">
+            <div style="background:rgba(244,67,54,0.1);border:1px solid rgba(244,67,54,0.3);border-radius:6px;padding:12px">
+              <div style="font-weight:600;font-size:12px;color:var(--ink);margin-bottom:8px">🚨 Testing Instructions</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px">To get authority private keys for testing:</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.4;margin-bottom:8px">1. Switch to <strong>Simulation Mode</strong> (top mode switcher)<br>2. Go to <strong>System Flow</strong> tab<br>3. Scroll to "Authority Keys" section<br>4. Click "Show/Hide" buttons to reveal private keys<br>5. Copy the private key for your authority (HR/ICC/NGO)<br>6. Return to Authority mode and paste in the private key field</div>
+              <div style="display:flex;gap:8px;margin-top:12px">
+                <button onclick="switchToSimForKeys()" style="background:rgba(255,255,255,0.06);color:white;border:none;padding:6px 12px;border-radius:4px;font-size:10px;cursor:pointer">→ Go to Simulation Keys</button>
+                <button onclick="resetAuthorityKeys()" style="background:var(--danger);color:white;border:none;padding:6px 12px;border-radius:4px;font-size:10px;cursor:pointer">🔄 Reset Keys</button>
+                <button onclick="testEncodingDecoding() && alert('Encoding/decoding test passed! Check console for details.')" style="background:var(--green);color:white;border:none;padding:6px 12px;border-radius:4px;font-size:10px;cursor:pointer">🧪 Test Encoding</button>
+              </div>
+              <div style="font-size:9px;color:var(--muted);margin-top:6px;font-style:italic">Note: Keys are now persistent across sessions. Reset Keys only for testing.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3>🔐 Security Preferences</h3>
+          <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:20px">Additional security and privacy options.</p>
+          
+          <div class="setting-item">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="autoLockSetting" onchange="updateAutoLockSetting()">
+              <span style="font-weight:600;color:var(--ink)">Auto-lock after inactivity</span>
+            </label>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;margin-left:24px;line-height:1.5">Automatically enter stealth mode after 10 minutes of inactivity</div>
+          </div>
+
+          <div class="setting-item">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="clearDataSetting" onchange="updateClearDataSetting()">
+              <span style="font-weight:600;color:var(--ink)">Clear data on stealth activation</span>
+            </label>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;margin-left:24px;line-height:1.5">Clear form data and temporary keys when entering stealth mode</div>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3>📱 Interface Preferences</h3>
+          <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:20px">Customize the appearance and behavior of the portal.</p>
+          
+          <div class="setting-item">
+            <label for="themeSetting" style="font-weight:600;color:var(--ink);margin-bottom:8px;display:block">Color Theme</label>
+            <select id="themeSetting" class="form-control" style="margin-bottom:12px" onchange="updateThemeSetting()">
+              <option value="default">Default (Dark Glass)</option>
+              <option value="dark">Dark Mode</option>
+              <option value="high-contrast">High Contrast</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="compactModeSetting" onchange="updateCompactModeSetting()">
+              <span style="font-weight:600;color:var(--ink)">Compact interface mode</span>
+            </label>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;margin-left:24px;line-height:1.5">Reduce padding and font sizes for smaller screens</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:30px;padding:20px;background:linear-gradient(135deg,rgba(255,193,7,0.1),rgba(255,87,34,0.1));border:1px solid rgba(255,193,7,0.2);border-radius:10px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <span style="font-size:20px">⚠️</span>
+          <span style="font-weight:700;color:var(--ink)">Security Notice</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6">
+          Remember your stealth shortcut and test it regularly. In emergency situations, you may need to activate stealth mode quickly. 
+          Settings are stored locally in your browser and are not transmitted to any server.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /userMode -->
+
+<!-- ============================================================ -->
+<!--  SIMULATION MODE                                             -->
+<!-- ============================================================ -->
+<div id="simMode">
+
+  <!-- SIM: LIVE -->
+  <div id="simpage-live" class="page active">
+    <div class="sim-banner">
+      🎓 Judge / Evaluator Mode — Live Cryptographic Simulation
+      <span class="sim-banner-right">Real Web Crypto API · Every key is genuine · Open DevTools to verify</span>
+    </div>
+
+    <div class="sim-layout">
+
+      <!-- USER PANEL -->
+      <div class="sim-panel">
+        <div class="sim-panel-header">
+          <div>
+            <div class="sim-panel-label">Panel A — User's Browser</div>
+            <div class="sim-panel-title">Complaint Filing</div>
+          </div>
+          <div class="sim-panel-badge" style="background:rgba(255,103,0,0.15);color:var(--saffron)">CLIENT SIDE</div>
+        </div>
+
+        <!-- Step progress -->
+        <div style="padding:16px 20px 0">
+          <div class="sim-stepper">
+            <div class="sim-step-node done" id="sn1" onclick="simSetStep(1)" title="Key Generation">1</div>
+            <div class="sim-step-line" id="sl1"></div>
+            <div class="sim-step-node active" id="sn2" onclick="simSetStep(2)" title="Write & Encrypt">2</div>
+            <div class="sim-step-line" id="sl2"></div>
+            <div class="sim-step-node" id="sn3" onclick="simSetStep(3)" title="Authority Selection">3</div>
+            <div class="sim-step-line" id="sl3"></div>
+            <div class="sim-step-node" id="sn4" onclick="simSetStep(4)" title="Submit">4</div>
+          </div>
+        </div>
+
+        <div class="sim-panel-body">
+
+          <!-- STEP 1 -->
+          <div id="simStep1" style="display:none">
+            <div class="judge-note">On initialization, the browser generates a real AES-256-GCM key using <code>crypto.subtle.generateKey()</code>. This key exists only in JS memory — never written to disk.</div>
+            <div style="background:rgba(255,255,255,0.06);border-radius:2px;padding:14px;margin-bottom:12px">
+              <div style="font-family:'DM Mono',monospace;font-size:8px;color:rgba(255,255,255,0.3);margin-bottom:6px;letter-spacing:0.1em">AES-256-GCM SESSION KEY</div>
+              <div class="crypto-key-display revealed" id="simAesKey" style="font-size:9px">Generating...</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.06);border-radius:2px;padding:14px">
+              <div style="font-family:'DM Mono',monospace;font-size:8px;color:rgba(255,255,255,0.3);margin-bottom:6px;letter-spacing:0.1em">TRACKING TOKEN (UUID)</div>
+              <div class="crypto-key-display revealed" id="simToken" style="font-size:10px;color:rgba(201,168,76,0.9)">Generating...</div>
+            </div>
+            <button class="btn btn-saffron" style="width:100%;margin-top:12px;justify-content:center" onclick="simSetStep(2)">Next: Write Complaint →</button>
+          </div>
+
+          <!-- STEP 2 -->
+          <div id="simStep2">
+            <div class="judge-note">As the user types, the complaint is encrypted in real time. The right pane shows actual AES-GCM ciphertext. Plaintext never leaves this panel.</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+              <div class="enc-pane">
+                <div class="enc-pane-label plain" style="font-size:8px">PLAINTEXT (browser only)</div>
+                <div class="enc-plain-text" id="simPlainPrev" style="font-size:11px;min-height:70px">Type below...</div>
+              </div>
+              <div class="enc-pane" style="border-color:rgba(255,103,0,0.2)">
+                <div class="enc-pane-label cipher" style="font-size:8px">CIPHERTEXT (transmitted)</div>
+                <div class="enc-cipher-text" id="simCipherPrev" style="min-height:70px">...</div>
+              </div>
+            </div>
+            <textarea class="field-input" id="simComplaintInput" placeholder="Type a sample complaint here to see live encryption..." oninput="onSimType(this.value)" rows="3"></textarea>
+            <button class="btn btn-saffron" style="width:100%;margin-top:8px;justify-content:center" onclick="simSetStep(3)">Next: Select Authorities →</button>
+          </div>
+
+          <!-- STEP 3 -->
+          <div id="simStep3" style="display:none">
+            <div class="judge-note">User selects which authorities can decrypt. For each selected authority, the AES key is wrapped (encrypted) using their RSA-2048 public key.</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+              <div class="auth-sel hr" id="simAuthHR" onclick="simToggleAuth('HR')" style="padding:10px 12px">
+                <div class="auth-sel-check" id="simChkHR"></div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span>🏢</span>
+                  <div>
+                    <div class="auth-sel-name" style="font-size:11px">Human Resources</div>
+                    <div class="auth-sel-desc" style="font-size:9px" id="simPubkeyHR">Loading RSA public key...</div>
+                  </div>
+                </div>
+              </div>
+              <div class="auth-sel icc" id="simAuthICC" onclick="simToggleAuth('ICC')" style="padding:10px 12px">
+                <div class="auth-sel-check" id="simChkICC"></div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span>⚖️</span>
+                  <div>
+                    <div class="auth-sel-name" style="font-size:11px">IC Committee</div>
+                    <div class="auth-sel-desc" style="font-size:9px" id="simPubkeyICC">Loading RSA public key...</div>
+                  </div>
+                </div>
+              </div>
+              <div class="auth-sel ngo" id="simAuthNGO" onclick="simToggleAuth('NGO')" style="padding:10px 12px">
+                <div class="auth-sel-check" id="simChkNGO"></div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span>🌿</span>
+                  <div>
+                    <div class="auth-sel-name" style="font-size:11px">NGO Partner</div>
+                    <div class="auth-sel-desc" style="font-size:9px" id="simPubkeyNGO">Loading RSA public key...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="wrap-vis">
+              <div class="wrap-vis-label">Key Wrapping Status</div>
+              <div class="wrap-row" id="wrapRowHR">
+                <div class="wrap-key">AES-KEY</div>
+                <span style="color:var(--muted);padding:0 4px;font-size:10px">+</span>
+                <div class="wrap-key">HR_PUB</div>
+                <span class="wrap-lock">→</span>
+                <div class="wrap-out" id="wrapOutHR">not wrapped</div>
+              </div>
+              <div class="wrap-row" id="wrapRowICC">
+                <div class="wrap-key">AES-KEY</div>
+                <span style="color:var(--muted);padding:0 4px;font-size:10px">+</span>
+                <div class="wrap-key">ICC_PUB</div>
+                <span class="wrap-lock">→</span>
+                <div class="wrap-out" id="wrapOutICC">not wrapped</div>
+              </div>
+              <div class="wrap-row" id="wrapRowNGO">
+                <div class="wrap-key">AES-KEY</div>
+                <span style="color:var(--muted);padding:0 4px;font-size:10px">+</span>
+                <div class="wrap-key">NGO_PUB</div>
+                <span class="wrap-lock">→</span>
+                <div class="wrap-out" id="wrapOutNGO">not wrapped</div>
+              </div>
+            </div>
+            <button class="btn btn-saffron" style="width:100%;justify-content:center" onclick="simSetStep(4)">Next: Submit →</button>
+          </div>
+
+          <!-- STEP 4 -->
+          <div id="simStep4" style="display:none">
+            <div class="judge-note">Review the payload before submission. Notice: only ciphertext and wrapped keys. No plaintext, no identity, no IP.</div>
+            <div class="terminal" style="margin-bottom:12px">
+              <div class="terminal-titlebar"><div class="t-btn"></div><div class="t-btn"></div><div class="t-btn"></div><div class="terminal-name">payload.json → server</div></div>
+              <div class="terminal-body">
+                <div class="tl"><span class="tk">encrypted_blob:</span><span class="tv" id="simPPayload">submit to see...</span></div>
+                <div class="tl"><span class="tk">wrapped_keys:</span><span class="tv" id="simPKeys">{}</span></div>
+                <div class="tl"><span class="tk">tracking_hash:</span><span class="tv" id="simPToken">—</span></div>
+                <div class="tl"><span class="tk">ip_address:</span><span class="tv red">[STRIPPED AT PROXY]</span></div>
+                <div class="tl"><span class="tk">identity:</span><span class="tv red">[UNKNOWN — BY DESIGN]</span></div>
+                <div class="tl"><span class="tk">plaintext:</span><span class="tv dim">[DOES NOT EXIST]</span></div>
+              </div>
+            </div>
+            <button class="btn btn-green" style="width:100%;justify-content:center" id="simSubmitBtn" onclick="simSubmit()">🔐 Submit Encrypted Complaint</button>
+            <div class="success-box" id="simSuccessBox" style="margin-top:12px;padding:16px;text-align:left">
+              <div class="stamp green" style="margin-bottom:10px">✓ Submitted</div>
+              <div style="font-size:11px;color:var(--muted)">Token: <span class="mono" id="simSuccessToken" style="color:var(--ink);font-size:10px"></span></div>
+              <div style="font-size:10px;color:var(--muted);margin-top:6px">→ Check Authority Panel to see decryption in action</div>
+            </div>
+          </div>
+
+        </div>
+        <div class="sim-resize-handle" id="resizeHandle1"></div>
+      </div>
+
+      <!-- SERVER PANEL -->
+      <div class="sim-panel" style="background:var(--cream)">
+        <div class="sim-panel-header" style="background:rgba(255,255,255,0.06)">
+          <div>
+            <div class="sim-panel-label">Panel B — Server</div>
+            <div class="sim-panel-title">What Server Sees</div>
+          </div>
+          <div class="sim-panel-badge" style="background:rgba(244,63,94,0.2);color:#f87171">BLIND</div>
+        </div>
+        <div class="sim-panel-body">
+          <div class="blind-seal">
+            <div class="blind-seal-title">Architecturally Blind</div>
+            <div class="blind-seal-sub">No private keys. Cannot decrypt. Even full server compromise = only ciphertext.</div>
+          </div>
+          <div class="server-stat-grid">
+            <div class="server-stat">
+              <div class="server-stat-n gold" id="simSubCount">0</div>
+              <div class="server-stat-l">COMPLAINTS</div>
+            </div>
+            <div class="server-stat">
+              <div class="server-stat-n red">0</div>
+              <div class="server-stat-l">IPs LOGGED</div>
+            </div>
+            <div class="server-stat">
+              <div class="server-stat-n" style="color:#6ee7b7" id="simKeyCount">0</div>
+              <div class="server-stat-l">WRAPPED KEYS</div>
+            </div>
+            <div class="server-stat">
+              <div class="server-stat-n red">0</div>
+              <div class="server-stat-l">PLAINTEXT</div>
+            </div>
+          </div>
+
+          <div class="terminal">
+            <div class="terminal-titlebar"><div class="t-btn"></div><div class="t-btn"></div><div class="t-btn"></div><div class="terminal-name">server.log</div></div>
+            <div class="terminal-body" id="simServerLog" style="min-height:100px">
+              <div style="color:rgba(255,255,255,0.2);font-size:8px">Awaiting requests...</div>
+            </div>
+          </div>
+
+          <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:8px 0;letter-spacing:0.1em;text-transform:uppercase">Stored Records</div>
+          <div id="simStoredRecords">
+            <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:center;padding:16px">No records yet</div>
+          </div>
+        </div>
+        <div class="sim-resize-handle" id="resizeHandle2"></div>
+      </div>
+
+      <!-- AUTHORITY PANEL -->
+      <div class="sim-panel">
+        <div class="sim-panel-header">
+          <div>
+            <div class="sim-panel-label">Panel C — Authority Dashboard</div>
+            <div class="sim-panel-title">Decrypt & Review</div>
+          </div>
+          <div class="sim-panel-badge" style="background:rgba(19,136,8,0.15);color:#6ee7b7">PRIVATE KEY</div>
+        </div>
+        <div class="sim-auth-tabs">
+          <div class="sim-auth-tab hr active" onclick="simSwitchAuth('HR')">🏢 HR</div>
+          <div class="sim-auth-tab icc" onclick="simSwitchAuth('ICC')">⚖️ ICC</div>
+          <div class="sim-auth-tab ngo" onclick="simSwitchAuth('NGO')">🌿 NGO</div>
+        </div>
+        <div class="sim-panel-body" id="simAuthBody">
+
+          <div id="simAuthContent_HR">
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:12px;margin-bottom:12px">
+              <div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">HR Private Key (RSA-2048)</div>
+              <div class="crypto-key-display" id="simHRPrivKey" style="font-size:8px;color:var(--danger)">Loading...</div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="reveal-toggle" style="background:var(--cream);color:var(--muted);border-color:var(--border2)" onclick="toggleKey('simHRPrivKey')">Show / Hide</button>
+                <button class="reveal-toggle" style="background:var(--saffron);color:white;border-color:var(--saffron)" onclick="copyPrivateKey('HR')">📋 Copy Key</button>
+              </div>
+              <div style="font-size:9px;color:var(--muted);margin-top:6px;font-style:italic">In production: stored on HSM — never server-side</div>
+            </div>
+            <div id="hrSimComplaints"></div>
+          </div>
+
+          <div id="simAuthContent_ICC" style="display:none">
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:12px;margin-bottom:12px">
+              <div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">ICC Private Key (RSA-2048)</div>
+              <div class="crypto-key-display" id="simICCPrivKey" style="font-size:8px;color:var(--danger)">Loading...</div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="reveal-toggle" style="background:var(--cream);color:var(--muted);border-color:var(--border2)" onclick="toggleKey('simICCPrivKey')">Show / Hide</button>
+                <button class="reveal-toggle" style="background:var(--saffron);color:white;border-color:var(--saffron)" onclick="copyPrivateKey('ICC')">📋 Copy Key</button>
+              </div>
+            </div>
+            <div id="iccSimComplaints"></div>
+          </div>
+
+          <div id="simAuthContent_NGO" style="display:none">
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:12px;margin-bottom:12px">
+              <div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">NGO Private Key (RSA-2048)</div>
+              <div class="crypto-key-display" id="simNGOPrivKey" style="font-size:8px;color:var(--danger)">Loading...</div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="reveal-toggle" style="background:var(--cream);color:var(--muted);border-color:var(--border2)" onclick="toggleKey('simNGOPrivKey')">Show / Hide</button>
+                <button class="reveal-toggle" style="background:var(--saffron);color:white;border-color:var(--saffron)" onclick="copyPrivateKey('NGO')">📋 Copy Key</button>
+              </div>
+            </div>
+            <div id="ngoSimComplaints"></div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /sim-layout -->
+
+    <!-- CRYPTO LOG -->
+    <button id="cryptoLogToggle" onclick="toggleCryptoLog()">📋 Crypto Log (<span id="simLogCount">0</span>)</button>
+    <div id="cryptoLog">
+      <div id="cryptoLogBody"></div>
+    </div>
+
+  </div><!-- /simpage-live -->
+
+  <!-- SIM: FLOW -->
+  <div id="simpage-flow" class="page" style="display:none;padding-top:0">
+    <div class="sim-banner">System Architecture Flow<span class="sim-banner-right">Click any node to expand</span></div>
+    <div class="content" style="max-width:900px">
+      <div style="padding:24px 0">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+          <div class="about-card" onclick="this.querySelector('.flow-detail').style.display=this.querySelector('.flow-detail').style.display==='none'?'block':'none'" style="cursor:pointer;transition:all 0.2s;border-left:4px solid var(--saffron)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <div style="width:28px;height:28px;background:rgba(255,255,255,0.06);color:var(--white);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0">01</div>
+              <div style="font-family:'Crimson Pro',serif;font-size:16px;font-weight:700;color:var(--ink)">Browser Key Generation</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5">AES-256-GCM key generated entirely in-browser. Never leaves RAM. UUID tracking token created.</div>
+            <div class="flow-detail" style="display:none;margin-top:10px;background:rgba(255,255,255,0.06);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);line-height:1.8">crypto.subtle.generateKey({name:'AES-GCM',length:256},true,['encrypt','decrypt'])<br>→ CryptoKey in JS memory<br>crypto.randomUUID() → tracking token</div>
+          </div>
+
+          <div class="about-card" onclick="this.querySelector('.flow-detail').style.display=this.querySelector('.flow-detail').style.display==='none'?'block':'none'" style="cursor:pointer;border-left:4px solid var(--navy)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <div style="width:28px;height:28px;background:rgba(255,255,255,0.06);color:var(--white);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0">02</div>
+              <div style="font-family:'Crimson Pro',serif;font-size:16px;font-weight:700;color:var(--ink)">Complaint Encryption</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5">Complaint text encrypted with AES key. Random 12-byte IV generated per submission. Plaintext discarded.</div>
+            <div class="flow-detail" style="display:none;margin-top:10px;background:rgba(255,255,255,0.06);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);line-height:1.8">crypto.getRandomValues(new Uint8Array(12)) → IV<br>crypto.subtle.encrypt({name:'AES-GCM',iv}, key, text)<br>→ ArrayBuffer ciphertext</div>
+          </div>
+
+          <div class="about-card" onclick="this.querySelector('.flow-detail').style.display=this.querySelector('.flow-detail').style.display==='none'?'block':'none'" style="cursor:pointer;border-left:4px solid var(--gold)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <div style="width:28px;height:28px;background:rgba(255,255,255,0.06);color:var(--white);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0">03</div>
+              <div style="font-family:'Crimson Pro',serif;font-size:16px;font-weight:700;color:var(--ink)">RSA Key Wrapping</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5">AES key wrapped with each selected authority's RSA-2048 public key. Unselected = no key = cryptographic exclusion.</div>
+            <div class="flow-detail" style="display:none;margin-top:10px;background:rgba(255,255,255,0.06);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);line-height:1.8">crypto.subtle.wrapKey('raw',aesKey,authorityPublicKey,{name:'RSA-OAEP'})<br>→ ArrayBuffer wrappedKey per authority<br>Unselected: no wrap → mathematically excluded</div>
+          </div>
+
+          <div class="about-card" onclick="this.querySelector('.flow-detail').style.display=this.querySelector('.flow-detail').style.display==='none'?'block':'none'" style="cursor:pointer;border-left:4px solid var(--danger)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <div style="width:28px;height:28px;background:rgba(255,255,255,0.06);color:var(--white);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0">04</div>
+              <div style="font-family:'Crimson Pro',serif;font-size:16px;font-weight:700;color:var(--ink)">Blind Server Storage</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5">Server stores only ciphertext and wrapped keys. No private keys, no plaintext, no IP. Architecturally incapable of decrypting.</div>
+            <div class="flow-detail" style="display:none;margin-top:10px;background:rgba(255,255,255,0.06);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);line-height:1.8">Stored: {encrypted_blob, iv, wrapped_keys[], tracking_hash}<br>Not stored: plaintext, user_ip, user_identity<br>Server compromise → attacker sees only ciphertext</div>
+          </div>
+
+          <div class="about-card" onclick="this.querySelector('.flow-detail').style.display=this.querySelector('.flow-detail').style.display==='none'?'block':'none'" style="cursor:pointer;border-left:4px solid var(--green)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <div style="width:28px;height:28px;background:rgba(255,255,255,0.06);color:var(--white);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0">05</div>
+              <div style="font-family:'Crimson Pro',serif;font-size:16px;font-weight:700;color:var(--ink)">Authority Decryption</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5">Authority uses private key to unwrap AES key, then decrypts complaint. Two-step process. Private key never touches server.</div>
+            <div class="flow-detail" style="display:none;margin-top:10px;background:rgba(255,255,255,0.06);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);line-height:1.8">crypto.subtle.unwrapKey('raw',wrappedKey,privateKey,{name:'RSA-OAEP'},{name:'AES-GCM'})<br>→ Recovered AES key<br>crypto.subtle.decrypt({name:'AES-GCM',iv},aesKey,ciphertext)</div>
+          </div>
+
+          <div class="about-card" onclick="this.querySelector('.flow-detail').style.display=this.querySelector('.flow-detail').style.display==='none'?'block':'none'" style="cursor:pointer;border-left:4px solid var(--muted)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <div style="width:28px;height:28px;background:rgba(255,255,255,0.06);color:var(--white);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0">06</div>
+              <div style="font-family:'Crimson Pro',serif;font-size:16px;font-weight:700;color:var(--ink)">Anonymous Status Tracking</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5">User checks status using only tracking token. Response encrypted back to user. No login, no identity, full anonymity maintained.</div>
+            <div class="flow-detail" style="display:none;margin-top:10px;background:rgba(255,255,255,0.06);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);line-height:1.8">User submits: hash(tracking_token)<br>Server: finds complaint, returns encrypted status<br>Client: decrypts with token-derived key<br>→ Full anonymity preserved</div>
+          </div>
+
+        </div>
+
+        <div class="about-card" style="margin-top:16px">
+          <h3>Security Guarantees</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:12px">
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:10px">
+              <div class="stamp green" style="font-size:9px;margin-bottom:6px">✓ Forward Secrecy</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.4">New key per complaint — one compromise reveals nothing else</div>
+            </div>
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:10px">
+              <div class="stamp navy" style="font-size:9px;margin-bottom:6px">✓ Zero Trust</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.4">Server holds no private keys — compromise yields only ciphertext</div>
+            </div>
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:10px">
+              <div class="stamp orange" style="font-size:9px;margin-bottom:6px">✓ Auth Encryption</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.4">AES-GCM provides confidentiality and tamper detection in one pass</div>
+            </div>
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:10px">
+              <div class="stamp green" style="font-size:9px;margin-bottom:6px">✓ User Sovereignty</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.4">Cryptographic exclusion of authorities — not policy-based, math-based</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- SIM: SECURITY -->
+  <div id="simpage-security" class="page" style="display:none;padding-top:0">
+    <div class="sim-banner">Security Proofs & Technical Specifications<span class="sim-banner-right">For technical evaluators</span></div>
+    <div class="content" style="max-width:900px">
+      <div style="padding:24px 0;display:grid;gap:16px">
+        <div class="about-card">
+          <h3>Zero Knowledge Proof Simulation</h3>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px">Prove organizational membership without revealing identity. Uses Groth16 circuit over a Merkle membership tree.</div>
+          <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:8px;align-items:center;margin-bottom:16px">
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:12px;text-align:center">
+              <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">USER PROVES</div>
+              <div style="font-size:12px;font-weight:600;color:var(--ink)">"I belong to Org"</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px;font-family:'DM Mono',monospace">identity: HIDDEN</div>
+            </div>
+            <div style="color:var(--saffron);font-size:20px;text-align:center">→</div>
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:12px;text-align:center">
+              <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">VERIFIER CHECKS</div>
+              <div style="font-size:12px;font-weight:600;color:var(--ink)">proof ≠ secret</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px;font-family:'DM Mono',monospace">sees: π only</div>
+            </div>
+            <div style="color:var(--saffron);font-size:20px;text-align:center">→</div>
+            <div style="background:rgba(19,136,8,0.05);border:1px solid rgba(19,136,8,0.2);border-radius:2px;padding:12px;text-align:center">
+              <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">RESULT</div>
+              <div style="font-size:12px;font-weight:700;color:var(--green)">Verified ✓</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px;font-family:'DM Mono',monospace">identity: UNKNOWN</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="runZKP()">Run ZKP Simulation</button>
+          <div id="zkpOutput" style="display:none;margin-top:12px;background:rgba(255,255,255,0.06);border-radius:2px;padding:12px;font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);line-height:2"></div>
+        </div>
+
+        <div class="about-card">
+          <h3>EXIF Metadata Stripping Demo</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;color:var(--danger);text-transform:uppercase;margin-bottom:8px">Before — Dangerous</div>
+              <div style="background:var(--cream);border:1px solid rgba(220,38,38,0.2);border-radius:2px">
+                <div id="metaBefore">
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">GPS</span><span style="color:var(--danger)">28.6139°N, 77.2090°E</span></div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">Device</span><span style="color:var(--danger)">Samsung Galaxy S21</span></div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">Timestamp</span><span style="color:var(--danger)">2025-02-14 09:23</span></div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">Software</span><span style="color:var(--danger)">Camera 11.0.3</span></div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;color:var(--green);text-transform:uppercase;margin-bottom:8px">After Strip — Safe</div>
+              <div style="background:var(--cream);border:1px solid rgba(19,136,8,0.2);border-radius:2px">
+                <div id="metaAfter">
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">GPS</span><span style="color:var(--muted);text-decoration:line-through">[STRIPPED]</span></div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">Device</span><span style="color:var(--muted);text-decoration:line-through">[STRIPPED]</span></div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">Timestamp</span><span style="color:var(--muted);text-decoration:line-through">[STRIPPED]</span></div>
+                  <div style="display:flex;justify-content:space-between;padding:6px 10px;font-size:10px"><span style="color:var(--muted);font-family:'DM Mono',monospace">Software</span><span style="color:var(--muted);text-decoration:line-through">[STRIPPED]</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="about-card">
+          <h3>Emergency Delete</h3>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">One action wipes all traces from the browser. No forensic recovery possible after this operation.</div>
+          <button class="btn" style="background:var(--danger);color:var(--white);width:100%;justify-content:center;margin-bottom:12px" onclick="runEmergencyDeleteSim()">⚡ Simulate Emergency Delete</button>
+          <div id="emergencySteps" style="display:none">
+            <div class="dstep" id="edel1"><div class="dstep-icon">○</div>Clearing complaint draft from memory...</div>
+            <div class="dstep" id="edel2"><div class="dstep-icon">○</div>sessionStorage.clear()</div>
+            <div class="dstep" id="edel3"><div class="dstep-icon">○</div>localStorage.clear()</div>
+            <div class="dstep" id="edel4"><div class="dstep-icon">○</div>caches.keys() → deleting all service worker caches...</div>
+            <div class="dstep" id="edel5"><div class="dstep-icon">○</div>IndexedDB.deleteDatabase() for all databases...</div>
+            <div class="dstep" id="edel6"><div class="dstep-icon">○</div>✓ All browser data eliminated</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div><!-- /simMode -->
+
+<!-- ============================================================ -->
+<!--  AUTHORITY MODE                                              -->
+<!-- ============================================================ -->
+<div id="authorityMode" style="display:none">
+
+  <!-- AUTHORITY SELECTION -->
+  <div id="auth-review" class="page active">
+    <div class="page-band">
+      <div>
+        <div class="page-band-title">Authority <span>Dashboard</span></div>
+        <div class="page-band-sub">Review encrypted complaints filed with your organization.</div>
+      </div>
+      <div class="page-band-meta">
+        <div id="authCurrent">Select Authority</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- AUTHORITY SELECTOR -->
+      <div style="margin-bottom:24px">
+        <div style="font-size:13px;font-weight:700;color:var(--ink);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:12px">Select Your Authority</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          <div class="auth-sel hr" id="authCardHR" onclick="selectAuthority('HR')" style="cursor:pointer;padding:16px;text-align:center;border:2px solid var(--border)">
+            <div style="font-size:32px;margin-bottom:8px">👨‍💼</div>
+            <div style="font-size:13px;font-weight:700;color:var(--ink)">HR Department</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Human Resources</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:6px" id="hrCount">0 complaints</div>
+          </div>
+          <div class="auth-sel icc" id="authCardICC" onclick="selectAuthority('ICC')" style="cursor:pointer;padding:16px;text-align:center;border:2px solid var(--border)">
+            <div style="font-size:32px;margin-bottom:8px">⚖️</div>
+            <div style="font-size:13px;font-weight:700;color:var(--ink)">IC Committee</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">POSH Act Compliance</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:6px" id="iccCount">0 complaints</div>
+          </div>
+          <div class="auth-sel ngo" id="authCardNGO" onclick="selectAuthority('NGO')" style="cursor:pointer;padding:16px;text-align:center;border:2px solid var(--border)">
+            <div style="font-size:32px;margin-bottom:8px">🤝</div>
+            <div style="font-size:13px;font-weight:700;color:var(--ink)">NGO Partner</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Independent Review</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:6px" id="ngoCount">0 complaints</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRIVATE KEY INPUT -->
+      <div id="authPrivKeySection" style="display:none;margin-bottom:20px">
+        <div style="background:var(--glass);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+          <div style="background:rgba(255,255,255,0.06);padding:14px 20px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,0.6);letter-spacing:0.1em;text-transform:uppercase">Private Key Authentication</div>
+              <div style="font-size:13px;color:var(--white);font-weight:600;margin-top:2px">Enter your RSA-2048 Private Key to decrypt complaints</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div class="secure-dot"></div>
+              <span style="font-size:11px;color:rgba(255,255,255,0.7);font-family:'DM Mono',monospace">LOCAL ONLY</span>
+            </div>
+          </div>
+          <div style="padding:16px 20px">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-style:italic">Your private key never leaves your browser. It is used only to unwrap the AES key and decrypt complaint data in-memory.</div>
+            <div id="keyDiagnostic" style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:6px;background:rgba(255,255,255,0.06);border-radius:3px">Key diagnostic: Loading...</div>
+            <textarea id="authPrivKeyInput" class="field-input" placeholder="--MAYDAY--START--{paste key here}--MAYDAY--END--&#10;OR&#10;-----BEGIN PRIVATE KEY-----&#10;{standard PEM format}&#10;-----END PRIVATE KEY-----" style="font-family:'DM Mono',monospace;font-size:10px;min-height:100px;resize:vertical;background:var(--paper)"></textarea>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+              <button class="btn btn-primary" onclick="loadAuthorityPrivateKey()" style="font-size:10px;padding:8px 20px">🔑 Load Private Key</button>
+              <span id="authKeyStatus" style="font-size:10px;color:var(--muted)"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPLAINTS LIST -->
+      <div id="authComplaintsList" style="display:none">
+        <div style="background:var(--glass);border:1px solid var(--border);border-radius:2px;margin-bottom:20px">
+          <div style="background:var(--cream);padding:16px;border-bottom:1px solid var(--border)">
+            <div style="font-size:14px;font-weight:700;color:var(--ink);letter-spacing:0.04em;text-transform:uppercase">
+              <span id="selectedAuthLabel">---</span> - Complaints to Review
+            </div>
+            <div style="font-size:13px;color:var(--ink2);margin-top:4px">
+              Total: <strong id="totalComplaintsCount">0</strong> | Reviewed: <strong id="reviewedCount">0</strong> | Pending: <strong id="pendingCount">0</strong>
+            </div>
+          </div>
+          <div id="complaintsList" style="padding:16px">
+            <div style="text-align:center;color:var(--muted);padding:32px;font-style:italic">
+              No complaints assigned to this authority yet.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- AUTHORITY STATS -->
+  <div id="auth-stats" class="page" style="display:none">
+    <div class="page-band">
+      <div>
+        <div class="page-band-title">Authority <span>Statistics</span></div>
+        <div class="page-band-sub">Complaint resolution metrics and trends.</div>
+      </div>
+    </div>
+    <div class="content">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+        <div style="background:var(--glass);border:1px solid var(--border);border-radius:2px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--ink)" id="statTotal">0</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.06em">Total Assigned</div>
+        </div>
+        <div style="background:var(--glass);border:1px solid var(--border);border-radius:2px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--danger)" id="statPending">0</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.06em">Pending Review</div>
+        </div>
+        <div style="background:var(--glass);border:1px solid var(--border);border-radius:2px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--green)" id="statResolved">0</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.06em">Resolved</div>
+        </div>
+        <div style="background:var(--glass);border:1px solid var(--border);border-radius:2px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--ink)" id="statAvgTime">—</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.06em">Avg. Time</div>
+        </div>
+      </div>
+      <div style="background:var(--glass);border:1px solid var(--border);border-radius:2px;padding:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--ink);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:12px">
+          Recent Activity
+        </div>
+        <div id="authActivity" style="font-size:11px;color:var(--muted)">
+          <div style="text-align:center;padding:16px;font-style:italic">No activity yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /authorityMode -->
+
+<!-- ============================================================ -->
+<!--  STEALTH MODE DECOY                                         -->
+<!-- ============================================================ -->
+<div id="stealthOverlay" style="display:none">
+  <div class="stealth-topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:18px">🍳</span>
+      <span style="font-size:15px;font-weight:600;color:#333">RecipeHub — Daily Recipes & Cooking Tips</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="font-size:12px;color:#888">Home</span>
+      <span style="font-size:12px;color:#888">Categories</span>
+      <span style="font-size:12px;color:#888">Favourites</span>
+      <span style="font-size:12px;color:#e67e22;font-weight:600">Today's Pick</span>
+    </div>
+  </div>
+  <div class="stealth-body">
+    <div class="stealth-hero">
+      <div style="font-size:11px;color:#e67e22;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Recipe of the Day</div>
+      <div style="font-size:28px;font-weight:700;color:#2d3436;margin-bottom:6px">Classic Dal Makhani</div>
+      <div style="font-size:13px;color:#636e72;line-height:1.6">A rich and creamy lentil dish, slow-cooked with butter and cream. Perfect for weeknight dinners.</div>
+      <div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:#888">
+        <span>⏱ 45 mins</span><span>👨‍🍳 Medium</span><span>🍽 Serves 4</span><span>⭐ 4.8/5</span>
+      </div>
+    </div>
+    <div class="stealth-grid">
+      <div class="stealth-card">
+        <div style="background:linear-gradient(135deg,#ffecd2,#fcb69f);height:120px;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;font-size:36px">🍛</div>
+        <div style="padding:14px"><div style="font-weight:600;color:#2d3436;margin-bottom:4px">Butter Chicken</div><div style="font-size:11px;color:#888">30 mins · Easy</div></div>
+      </div>
+      <div class="stealth-card">
+        <div style="background:linear-gradient(135deg,#a8edea,#fed6e3);height:120px;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;font-size:36px">🥘</div>
+        <div style="padding:14px"><div style="font-weight:600;color:#2d3436;margin-bottom:4px">Paneer Tikka Masala</div><div style="font-size:11px;color:#888">40 mins · Medium</div></div>
+      </div>
+      <div class="stealth-card">
+        <div style="background:linear-gradient(135deg,#fbc2eb,#a6c1ee);height:120px;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;font-size:36px">🍚</div>
+        <div style="padding:14px"><div style="font-weight:600;color:#2d3436;margin-bottom:4px">Jeera Rice</div><div style="font-size:11px;color:#888">15 mins · Easy</div></div>
+      </div>
+      <div class="stealth-card">
+        <div style="background:linear-gradient(135deg,#667eea,#764ba2);height:120px;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;font-size:36px">🫓</div>
+        <div style="padding:14px"><div style="font-weight:600;color:#2d3436;margin-bottom:4px">Garlic Naan</div><div style="font-size:11px;color:#888">20 mins · Easy</div></div>
+      </div>
+      <div class="stealth-card">
+        <div style="background:linear-gradient(135deg,#f093fb,#f5576c);height:120px;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;font-size:36px">🍲</div>
+        <div style="padding:14px"><div style="font-weight:600;color:#2d3436;margin-bottom:4px">Sambar</div><div style="font-size:11px;color:#888">35 mins · Medium</div></div>
+      </div>
+      <div class="stealth-card">
+        <div style="background:linear-gradient(135deg,#4facfe,#00f2fe);height:120px;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;font-size:36px">🥗</div>
+        <div style="padding:14px"><div style="font-weight:600;color:#2d3436;margin-bottom:4px">Raita</div><div style="font-size:11px;color:#888">5 mins · Easy</div></div>
+      </div>
+    </div>
+    <div style="text-align:center;padding:20px;color:#bbb;font-size:11px">© 2026 RecipeHub · Privacy · Terms</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
+<script src="frontend/js/supabaseConfig.js"></script>
+<script src="frontend/js/dataService.js"></script>
+<script src="frontend/js/portal.js"></script>
+</body>
+</html>    
