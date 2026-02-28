@@ -1,0 +1,80 @@
+version: "3.9"
+
+services:
+  # ─── PostgreSQL ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: aawaaz-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: aawaaz
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aawaaz_dev_2024}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./supabase_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis ──────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: aawaaz-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ─── Go Backend ─────────────────────────────────────────────
+  server:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aawaaz-server
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-aawaaz_dev_2024}@postgres:5432/aawaaz?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
+      RATE_LIMIT_RPM: 120
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─── Vite Dev Server (development only) ────────────────────
+  frontend:
+    image: node:20-alpine
+    container_name: aawaaz-frontend
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080/api/v1
+    profiles:
+      - dev
+
+volumes:
+  pgdata:
+  redisdata:
+  node_modules:

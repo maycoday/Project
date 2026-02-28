@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600;700&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --navy: #0e1525;
+  --ink: #1a2332;
+  --cream: #faf9f6;
+  --saffron: #ff6f3c;
+  --green: #10b981;
+  --danger: #f43f5e;
+  --warn: #f59e0b;
+  --muted: #71717a;
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --blur-sm: blur(12px);
+  --blur-md: blur(24px);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--navy);
+  color: var(--cream);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 111, 60, 0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 111, 60, 0.5); }
+
+/* Selection */
+::selection {
+  background: rgba(255, 111, 60, 0.3);
+  color: #fff;
+}
+
+/* Glass morphism utility */
+@layer components {
+  .glass {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-lg;
+  }
+  .glass-dark {
+    @apply bg-black/20 backdrop-blur-md border border-white/5 rounded-lg;
+  }
+  .text-gradient {
+    @apply bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent;
+  }
+}
