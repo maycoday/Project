@@ -50,6 +50,19 @@ async function hydrateFromDatabase(){
   }
 }
 
+// Initialize with some sample data if database is empty
+function initializeSampleData() {
+  if(reports.length === 0) {
+    console.log('No data found, initializing with sample data...');
+    // Add a few sample reports for demonstration
+    for(let i = 0; i < 5; i++) {
+      reports.push(createReport());
+    }
+    runEngine();
+    renderAll();
+  }
+}
+
 /* Mode switcher navigation */
 function navigateMode(target){
   if(target==='pattern'){
@@ -57,6 +70,10 @@ function navigateMode(target){
   }
   if(target==='sim'){
     window.location.href='index.html#sim';
+    return;
+  }
+  if(target==='authority'){
+    window.location.href='index.html?mode=authority';
     return;
   }
   window.location.href='index.html';
@@ -82,12 +99,64 @@ function tick(){
 setInterval(tick,1000);tick();
 
 /* ══════════════════════════════════════════════
-   DATA INJECTION
+   DATA INJECTION (REAL COMPLAINT DATA)
 ══════════════════════════════════════════════ */
+
+// Cache for real complaints data
+let realComplaints = [];
+
+// Fetch real complaints from the database
+async function loadRealComplaints(){
+  if(window.AawaazData && window.AawaazData.enabled) {
+    try {
+      realComplaints = await window.AawaazData.fetchAllComplaints(200);
+      console.log(`📊 Loaded ${realComplaints.length} real complaints for pattern detection`);
+    } catch(e) {
+      console.warn('⚠️ Could not load real complaints, falling back to simulation data:', e);
+      realComplaints = [];
+    }
+  }
+}
+
+// Convert real complaint to pattern detection format
+function convertComplaintToReport(complaint){
+  const meta = complaint.metadata || {};
+  const timestamp = new Date(complaint.created_at).getTime();
+  
+  return {
+    id: complaint.id || 'RPT-'+Math.random().toString(36).slice(2,8).toUpperCase(),
+    token: complaint.token_hint || fakeToken(),
+    blob: complaint.ciphertext_b64 ? complaint.ciphertext_b64.slice(0,80) : fakeBlob(),
+    category: meta.category || CATS[Math.floor(Math.random()*CATS.length)],
+    department: (complaint.authorities && complaint.authorities[0]) || DEPTS[Math.floor(Math.random()*DEPTS.length)],
+    urgency: meta.severity || Math.floor(Math.random()*5)+1,
+    sentiment: meta.sentiment || Math.floor(Math.random()*10)+1,
+    timestamp: timestamp,
+    hourOfDay: new Date(timestamp).getHours()+(Math.random()*0.99),
+    blurredTime: new Date(timestamp).toLocaleTimeString('en-IN',{hour12:true}).split(':').slice(0,2).join(':')+'xx',
+  };
+}
+
+// Create report from real data or fallback to simulation
 function createReport(cat, dept, urgency, sentiment){
+  // Try to use real complaint data first
+  if(realComplaints.length > 0) {
+    const randomComplaint = realComplaints[Math.floor(Math.random() * realComplaints.length)];
+    const report = convertComplaintToReport(randomComplaint);
+    
+    // Override with specified parameters if provided
+    if(cat) report.category = cat;
+    if(dept) report.department = dept;
+    if(urgency) report.urgency = urgency;
+    if(sentiment) report.sentiment = sentiment;
+    
+    return report;
+  }
+  
+  // Fallback to simulation data if no real complaints
   const now=Date.now();
   return {
-    id: 'RPT-'+Math.random().toString(36).slice(2,8).toUpperCase(),
+    id: 'SIM-'+Math.random().toString(36).slice(2,8).toUpperCase(),
     token: fakeToken(),
     blob: fakeBlob(),
     category: cat || CATS[Math.floor(Math.random()*CATS.length)],
@@ -100,31 +169,55 @@ function createReport(cat, dept, urgency, sentiment){
   };
 }
 
-function injectRandom(){
+async function injectRandom(){
+  console.log('🎲 Injecting real complaint data...');
+  await loadRealComplaints(); // Ensure we have fresh data
   const r=createReport();
   reports.push(r);
   runEngine();
   renderAll();
+  const dataSource = realComplaints.length > 0 ? 'real complaint data' : 'simulation data';
+  console.log(`✅ Complaint injected from ${dataSource}. Total reports:`, reports.length);
 }
 
-function injectHotspot(){
+async function injectHotspot(){
+  console.log('🔥 Triggering hotspot detection with real data...');
+  await loadRealComplaints(); // Ensure we have fresh data
+  
+  // Use real department if available, otherwise fallback
+  let cat = 'Safety', dept = 'Logistics';
+  if(realComplaints.length > 0) {
+    const sampleComplaint = realComplaints[0];
+    const meta = sampleComplaint.metadata || {};
+    cat = meta.category || 'Safety';
+    dept = (sampleComplaint.authorities && sampleComplaint.authorities[0]) || 'Logistics';
+  }
+  
   // Force 4 same cat+dept within 72h
-  const cat='Safety', dept='Logistics';
   for(let i=0;i<4;i++) reports.push(createReport(cat,dept,4+Math.floor(Math.random()*2),7+Math.floor(Math.random()*3)));
   runEngine();
   renderAll();
+  const dataSource = realComplaints.length > 0 ? 'real complaint data' : 'simulation data';
+  console.log(`✅ Hotspot triggered using ${dataSource}: 4 ${cat}/${dept} complaints added. Total reports:`, reports.length);
 }
 
-function injectBatch(n){
+async function injectBatch(n){
+  console.log(`🌊 Flood injection starting: ${n} real complaints...`);
+  await loadRealComplaints(); // Ensure we have fresh data
   for(let i=0;i<n;i++) reports.push(createReport());
   runEngine();
   renderAll();
+  const dataSource = realComplaints.length > 0 ? 'real complaint data' : 'simulation data';
+  console.log(`✅ Flood complete: ${n} complaints injected from ${dataSource}`);
 }
 
 function clearData(){
-  reports=[];alerts=[];
-  runEngine();
-  renderAll();
+  if(confirm('⚠️ Clear all pattern detection data? This cannot be undone.')) {
+    reports=[];alerts=[];
+    runEngine();
+    renderAll();
+    console.log('🗑️ All pattern detection data cleared');
+  }
 }
 
 function submitCustom(){
@@ -215,7 +308,15 @@ function renderAll(){
   renderScatterChart();
   renderHeatmap();
   renderAdminView();
-  document.getElementById('totalCount').textContent=reports.length;
+  
+  // Update counts in sim bar
+  const totalCount = reports.length;
+  const hotspots = calcHotspots().length;
+  const kAnon = 0; // K-anonymization count (placeholder)
+  
+  if(document.getElementById('totalCount')) document.getElementById('totalCount').textContent = totalCount;
+  if(document.getElementById('hotspotCount')) document.getElementById('hotspotCount').textContent = hotspots;
+  if(document.getElementById('kanonCount')) document.getElementById('kanonCount').textContent = kAnon;
 }
 
 /* KPIs */
@@ -553,6 +654,15 @@ function seedDemo(){
 window.addEventListener('load', async ()=>{
   const loaded = await hydrateFromDatabase();
   if(!loaded) seedDemo();
+  
+  // Load real complaints for pattern detection
+  await loadRealComplaints();
+  if(realComplaints.length > 0) {
+    console.log(`🎯 Pattern detection initialized with ${realComplaints.length} real complaints`);
+  } else {
+    console.log('⚠️ Pattern detection using simulation data (no real complaints found)');
+  }
+  
   // resize charts after fonts load
   setTimeout(()=>{renderSentimentChart();renderScatterChart();},300);
 });

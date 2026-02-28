@@ -1,0 +1,20 @@
+{
+  "name": "aawaaz-whatsapp-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp complaint receiver for Aawaaz Grievance Portal",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "express": "^4.21.0",
+    "qrcode-terminal": "^0.12.0",
+    "uuid": "^13.0.0",
+    "whatsapp-web.js": "^1.26.1-alpha.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

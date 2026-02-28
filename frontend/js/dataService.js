@@ -78,6 +78,44 @@
       if(error) throw error;
       return {success:true};
     }
+
+    // ============================
+    // ACTIVITY LOG METHODS
+    // ============================
+    
+    async logActivity(tokenHash, activityType, actionDescription, authority, metadata = ''){
+      if(!this.enabled) return {offline: true};
+      const {error} = await this.client.from('activity_logs').insert({
+        token_hash: tokenHash,
+        activity_type: activityType,
+        action_description: actionDescription,
+        authority: authority,
+        metadata: metadata
+      });
+      if(error) throw error;
+      return {success: true};
+    }
+
+    async fetchActivityLogs(tokenHash, limit = 50){
+      if(!this.enabled) return [];
+      const {data, error} = await this.client.from('activity_logs')
+        .select('*')
+        .eq('token_hash', tokenHash)
+        .order('created_at', {ascending: true})
+        .limit(limit);
+      if(error && error.code !== 'PGRST116') throw error;
+      return data || [];
+    }
+
+    async fetchAllActivityLogs(limit = 100){
+      if(!this.enabled) return [];
+      const {data, error} = await this.client.from('activity_logs')
+        .select('*')
+        .order('created_at', {ascending: false})
+        .limit(limit);
+      if(error) throw error;
+      return data || [];
+    }
   }
 
   global.AawaazDataService = AawaazDataService;

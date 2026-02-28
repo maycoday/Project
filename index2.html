@@ -11,16 +11,14 @@
 <!-- MODE SWITCHER -->
 <div id="modeSwitcher">
   <div class="mode-brand">
-    <div class="ashoka-wheel">
-      <div class="wheel-spokes"></div>
-    </div>
-    <span>Aawaaz Portal &nbsp;—&nbsp; <span>आवाज़</span></span>
+    <img src="assets/image-removebg-preview.png" alt="Aawaaz Logo" style="height: 95px; width: auto;">
   </div>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="mode-label">MODE</span>
     <div class="mode-toggle">
       <button class="mode-btn" onclick="navigateMode('user')">User Portal</button>
       <button class="mode-btn" onclick="navigateMode('sim')">Simulation</button>
+      <button class="mode-btn" onclick="navigateMode('authority')">Authority</button>
       <button class="mode-btn active" onclick="navigateMode('pattern')">Pattern Detection</button>
     </div>
   </div>
@@ -30,9 +28,9 @@
 <div id="topbar">
   <div class="tb-left">
     <div class="tb-logo">
-      <div class="tb-shield">Æ</div>
+      <img src="assets/image-removebg-preview.png" alt="Aawaaz Logo" style="height: 70px; width: auto; margin-right: 8px;">
       <div>
-        <div class="tb-name"> <em>Aawaaz</em></div>
+        <div class="tb-name" style="display: none;"> <em>Aawaaz</em></div>
         <div class="tb-sub">Blind Analytics Engine — Aawaaz Grievance Portal</div>
       </div>
     </div>
@@ -46,17 +44,18 @@
       <button class="vt" onclick="setView('heatmap')">Heatmap</button>
       <button class="vt admin" onclick="setView('admin')">Sys Admin</button>
     </div>
-    <div class="tb-clock" id="clock"></div>
+    <div class="tb-clock" id="clock" style="display:none"></div>
   </div>
 </div>
 
 <!-- ══════════════════ SIM BAR ══════════════════ -->
 <div id="simbar">
   <span class="sb-label">Inject Test Data →</span>
-  <button class="sb-btn s" onclick="injectRandom()">⚡ Random Report</button>
-  <button class="sb-btn w" onclick="injectHotspot()">🔥 Trigger Hotspot</button>
-  <button class="sb-btn g" onclick="injectBatch(5)">📦 Batch ×5</button>
-  <button class="sb-btn c" onclick="injectBatch(20)">🌊 Flood ×20</button>
+  <button class="sb-btn s" onclick="injectRandom()">⚡ Real Complaint</button>
+  <button class="sb-btn w" onclick="injectHotspot()">🔥 Real Hotspot</button>
+  <button class="sb-btn g" onclick="injectBatch(5)">📦 Real Batch ×5</button>
+  <button class="sb-btn c" onclick="injectBatch(20)">🌊 Real Flood ×20</button>
+  <button class="sb-btn c" onclick="injectBatch(50)" style="background:rgba(244,63,94,0.1);color:var(--rose);border:1px solid rgba(244,63,94,0.2)">🌊🌊 Mega Flood ×50</button>
   <div class="sb-sep"></div>
   <button class="sb-btn" style="background:rgba(139,92,246,0.1);color:var(--purp);border:1px solid rgba(139,92,246,0.2)" onclick="clearData()">🗑 Clear All</button>
   <div class="sb-count">Total Reports: <span id="totalCount">0</span> &nbsp;·&nbsp; Hotspots: <span id="hotspotCount" style="color:var(--rose)">0</span> &nbsp;·&nbsp; K-Anon Blur Active: <span id="kanonCount" style="color:var(--cyan)">0</span></div>
@@ -253,8 +252,8 @@
 </div><!-- /main -->
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
-<script src="js/supabaseConfig.js"></script>
-<script src="js/dataService.js"></script>
-<script src="frontend/js/analytics.js"><\/script>
+<script src="frontend/js/supabaseConfig.js"></script>
+<script src="frontend/js/dataService.js"></script>
+<script src="frontend/js/analytics.js"></script>
 </body>
 </html>

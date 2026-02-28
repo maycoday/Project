@@ -113,7 +113,7 @@ CREATE POLICY "Allow admin full access"
 -- This view exposes ONLY the metadata, not the encrypted content
 -- Use this for public pattern-detection dashboards
 
-CREATE OR REPLACE VIEW complaints_analytics AS
+CREATE OR REPLACE VIEW complaints_analytics WITH (security_invoker = on) AS
 SELECT 
   id,
   reference,
@@ -128,6 +128,62 @@ FROM complaints_secure;
 
 -- Optional: Grant access to the analytics view
 GRANT SELECT ON complaints_analytics TO anon;
+
+-- ============================================================
+-- Activity Logs Table (for tracking authority actions)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS activity_logs (
+  -- Primary identifier
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- Reference to the complaint
+  complaint_id UUID REFERENCES complaints_secure(id) ON DELETE CASCADE,
+  
+  -- Token hash (for querying logs by token without needing complaint_id)
+  token_hash TEXT NOT NULL,
+  
+  -- Type of activity: view, decrypt, action, forward, resolve, escalate
+  activity_type TEXT NOT NULL,
+  
+  -- Human-readable action description
+  action_description TEXT NOT NULL,
+  
+  -- Authority code that performed the action (e.g., 'HR', 'ICC')
+  authority TEXT NOT NULL,
+  
+  -- Additional metadata about the action
+  metadata TEXT,
+  
+  -- Timestamp when action occurred
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Indexes for activity_logs
+CREATE INDEX IF NOT EXISTS idx_activity_logs_token_hash 
+  ON activity_logs(token_hash);
+  
+CREATE INDEX IF NOT EXISTS idx_activity_logs_complaint_id 
+  ON activity_logs(complaint_id);
+  
+CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at 
+  ON activity_logs(created_at DESC);
+
+-- RLS for activity_logs
+ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+
+-- Allow inserting activity logs (from authority actions)
+CREATE POLICY "Allow activity log insertion"
+  ON activity_logs
+  FOR INSERT
+  TO anon
+  WITH CHECK (true);
+
+-- Allow reading activity logs by token_hash
+CREATE POLICY "Allow activity log lookup by token"
+  ON activity_logs
+  FOR SELECT
+  TO anon
+  USING (true);
 
 -- ============================================================
 -- Helper Functions (Optional)

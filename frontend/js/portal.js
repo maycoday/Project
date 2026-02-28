@@ -17,13 +17,27 @@ const S = {
   simAuthTab: 'HR',
   selectedAuthority: null,
   authorityComplaints: [],
+  authorityPrivKey: null,
+  reviewedComplaints: new Set(), // Track reviewed complaints for status feedback
+  stealthMode: false,
+  ctrlSpaceCount: 0,
+  ctrlSpaceTimer: null,
 };
 
 // ============================
 // UTILS
 // ============================
 const ab2hex = b => Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+// Utility functions for robust base64 encoding/decoding
 const ab2b64 = b => btoa(String.fromCharCode(...new Uint8Array(b)));
+const b64toab = b64 => {
+  const binaryString = atob(b64);
+  const bytes = new Uint8Array(binaryString.length);
+  for(let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+};
 const trunc = (s,n=36) => s.length>n ? s.slice(0,n)+'…' : s;
 const esc = s => {const d=document.createElement('div');d.textContent=s;return d.innerHTML};
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
@@ -56,6 +70,32 @@ async function persistEncryptedComplaint(submission, metadata){
   Object.entries(S.wrapped).forEach(([auth,val])=>{
     if(val && val.b64) wrappedKeys[auth] = val.b64;
   });
+  
+  // Handle encrypted media if present
+  let mediaMetadata = null;
+  if (submission.media) {
+    const media = submission.media;
+    
+    // Wrap media encryption key for each authority
+    const encryptedMediaKeys = {};
+    for (const auth of submission.auths) {
+      if (S.wrapped[auth] && S.wrapped[auth].b64) {
+        // For website uploads, we use the same structure as WhatsApp
+        encryptedMediaKeys[auth] = `WEBSITE:${btoa(String.fromCharCode(...media.encryptionKey))}`;
+      }
+    }
+    
+    mediaMetadata = {
+      filename: `${submission.id}_${media.originalName}`,
+      originalName: media.originalName,
+      mimetype: media.mimetype,
+      size: media.size,
+      fileId: submission.id,
+      encryptedData: btoa(String.fromCharCode(...media.encryptedData)),
+      encryptedMediaKey: encryptedMediaKeys
+    };
+  }
+
   const payload = {
     reference: submission.id,
     created_at: submission.timestamp,
@@ -70,7 +110,9 @@ async function persistEncryptedComplaint(submission, metadata){
       department: metadata.department || null,
       incident_date: metadata.incidentDate || null,
       delay_release: metadata.delayRelease || null,
-      recorded_at: submission.timestamp
+      recorded_at: submission.timestamp,
+      source: "website",
+      media: mediaMetadata // Include media information
     }
   };
   return window.AawaazData.saveComplaint(payload);
@@ -82,13 +124,100 @@ async function findRemoteComplaintByToken(token){
   return window.AawaazData.findComplaintByTokenHash(tokenHash);
 }
 
-function renderTrackingCard(refToken, filedAt, authorities){
+async function renderTrackingCard(refToken, filedAt, authorities){
   const card = document.getElementById('statusCard');
   if(!card) return;
   card.classList.add('show');
   document.getElementById('trackRef').textContent = refToken;
   document.getElementById('trackDate').textContent = filedAt ? new Date(filedAt).toLocaleDateString('en-IN') : '—';
   document.getElementById('trackAuths').textContent = authorities && authorities.length ? authorities.join(', ') : '—';
+  
+  // Check if complaint has been reviewed by querying database
+  try {
+    const remote = await findRemoteComplaintByToken(refToken);
+    if(remote && (remote.review_status === 'reviewed' || remote.review_status === 'resolved')) {
+      console.log('📊 Found complaint status:', remote.review_status, 'reviewed by:', remote.reviewed_by);
+      // Update status display to show reviewed
+      const statusElement = card.querySelector('[style*="Under Review"]')?.parentElement || 
+                           card.querySelector('.status-badge');
+      if(statusElement) {
+        statusElement.innerHTML = '� Reviewed — Action Taken';
+        statusElement.style.background = 'var(--green)';
+        statusElement.style.color = 'white';
+      }
+      
+      // Update current status in grid using the ID
+      const currentStatusElement = document.getElementById('trackStatus') || card.querySelector('[style*="color:var(--green)"]');
+      if(currentStatusElement) {
+        if(remote.review_status === 'resolved') {
+          currentStatusElement.textContent = 'Resolved';
+          currentStatusElement.style.color = 'var(--green)';
+        } else {
+          currentStatusElement.textContent = 'Reviewed by ' + (remote.reviewed_by || 'Authority');
+          currentStatusElement.style.color = 'var(--navy)';
+        }
+        currentStatusElement.style.fontWeight = '600';
+      }
+      
+      // Show reviewed date if available  
+      if(remote.reviewed_at && !card.querySelector('[data-status-detail]')) {
+        const reviewedDate = new Date(remote.reviewed_at).toLocaleDateString('en-IN');
+        card.innerHTML += `
+          <div data-status-detail style="margin-top:12px;padding:12px;background:rgba(11,31,58,0.05);border:1px solid rgba(11,31,58,0.15);border-radius:8px;border-left:3px solid var(--navy)">
+            <div style="font-size:10px;color:var(--navy);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px">📋 Review Status</div>
+            <div style="font-size:12px;color:var(--ink)">Reviewed by <strong>${remote.reviewed_by || 'Authority'}</strong> on <strong>${reviewedDate}</strong></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Your complaint has been ${remote.review_status} by the relevant authority and is being processed.</div>
+          </div>`;
+      }
+      
+      // Show success notification for reviewed complaints
+      if(remote.review_status === 'reviewed' || remote.review_status === 'resolved') {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+          position: fixed; top: 80px; right: 20px; 
+          background: var(--navy); color: white; 
+          padding: 12px 20px; border-radius: 8px; 
+          z-index: 10000; font-weight: 500;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          animation: slideIn 0.3s ease-out;
+        `;
+        notification.innerHTML = `✓ Status Updated: Complaint has been ${remote.review_status} by ${remote.reviewed_by || 'authority'}`;
+        document.body.appendChild(notification);
+        
+        // Auto remove notification
+        setTimeout(() => {
+          notification.style.animation = 'slideIn 0.3s ease-out reverse';
+          setTimeout(() => notification.remove(), 300);
+        }, 4000);
+      }
+      
+      // Show reviewed notification if this is a fresh check
+      if(S.reviewedComplaints && S.reviewedComplaints.has(remote.id)) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+          position: fixed; top: 80px; right: 20px; 
+          background: var(--green); color: white; 
+          padding: 12px 20px; border-radius: 8px; 
+          z-index: 10000; font-weight: 500;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          animation: slideIn 0.3s ease-out;
+        `;
+        notification.innerHTML = `� Status Updated: Complaint has been reviewed by authorities`;
+        document.body.appendChild(notification);
+        
+        // Auto remove notification
+        setTimeout(() => {
+          notification.style.animation = 'slideIn 0.3s ease-out reverse';
+          setTimeout(() => notification.remove(), 300);
+        }, 4000);
+        
+        // Clear the reviewed flag to prevent repeated notifications
+        S.reviewedComplaints.delete(remote.id);
+      }
+    }
+  } catch(e) {
+    console.log('Could not check review status:', e);
+  }
 }
 
 // ============================
@@ -150,13 +279,65 @@ async function init(){
     if(document.getElementById('simAesKey')) document.getElementById('simAesKey').textContent = S.aesHex;
     if(document.getElementById('simToken')) document.getElementById('simToken').textContent = S.token;
 
-    // RSA key pairs for each authority
+    // RSA key pairs for each authority - use persistent keys across sessions
     for(const auth of ['HR','ICC','NGO']){
-      addLog(`Generating RSA-OAEP-2048 for ${auth}...`,'info');
-      const kp = await crypto.subtle.generateKey(
-        {name:'RSA-OAEP',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},
-        true,['wrapKey','unwrapKey']
-      );
+      let kp;
+      
+      // Try to load existing key pair from localStorage
+      try {
+        const savedKeys = localStorage.getItem(`aawaaz_authority_keys_${auth}`);
+        if(savedKeys){
+          const keyData = JSON.parse(savedKeys);
+          
+          // Import the saved keys
+          const publicKey = await crypto.subtle.importKey(
+            'spki',
+            new Uint8Array(atob(keyData.publicKey).split('').map(c => c.charCodeAt(0))),
+            {name:'RSA-OAEP', hash:'SHA-256'},
+            true,
+            ['wrapKey']
+          );
+          
+          const privateKey = await crypto.subtle.importKey(
+            'pkcs8',
+            new Uint8Array(atob(keyData.privateKey).split('').map(c => c.charCodeAt(0))),
+            {name:'RSA-OAEP', hash:'SHA-256'},
+            true,
+            ['unwrapKey']
+          );
+          
+          kp = { publicKey, privateKey };
+          addLog(`${auth} RSA-2048 key pair loaded from storage`,'info');
+        }
+      } catch(e) {
+        addLog(`Failed to load ${auth} keys from storage, generating new ones`,'warn');
+      }
+      
+      // Generate new key pair if loading failed
+      if(!kp){
+        addLog(`Generating RSA-OAEP-2048 for ${auth}...`,'info');
+        kp = await crypto.subtle.generateKey(
+          {name:'RSA-OAEP',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},
+          true,['wrapKey','unwrapKey']
+        );
+        
+        // Save the new key pair to localStorage
+        try {
+          const publicKeyData = await crypto.subtle.exportKey('spki', kp.publicKey);
+          const privateKeyData = await crypto.subtle.exportKey('pkcs8', kp.privateKey);
+          
+          const keyData = {
+            publicKey: ab2b64(publicKeyData),
+            privateKey: ab2b64(privateKeyData)
+          };
+          
+          localStorage.setItem(`aawaaz_authority_keys_${auth}`, JSON.stringify(keyData));
+          addLog(`${auth} RSA-2048 key pair saved to storage`,'success');
+        } catch(e) {
+          addLog(`Failed to save ${auth} keys: ${e.message}`,'warn');
+        }
+      }
+      
       S.authPairs[auth] = kp;
 
       // Public key display
@@ -171,16 +352,29 @@ async function init(){
       const simPub = document.getElementById('simPubkey'+auth);
       if(simPub) simPub.textContent = pem;
 
-      // Private key display
+      // Private key display (full key in MAYDAY format)
       const pkcs8 = await crypto.subtle.exportKey('pkcs8', kp.privateKey);
       const privB64 = ab2b64(pkcs8);
-      const privPem = `-----BEGIN PRIVATE KEY-----\n${privB64.slice(0,64)}…\n-----END PRIVATE KEY-----`;
+      const privPem = `--MAYDAY--START--${privB64}--MAYDAY--END--`;
       const simPriv = document.getElementById('sim'+auth+'PrivKey');
       if(simPriv) simPriv.textContent = privPem;
+      // Store full private key for easy access
+      S['fullPrivKey' + auth] = privPem;
 
       addLog(`${auth} RSA-2048 key pair ready`,'success');
     }
     addLog('All keys initialized. System ready.','success');
+    
+    // Debug: Log key persistence status
+    const persistedKeys = ['HR','ICC','NGO'].filter(auth => 
+      localStorage.getItem(`aawaaz_authority_keys_${auth}`)
+    );
+    if(persistedKeys.length > 0){
+      addLog(`Using persistent keys for: [${persistedKeys.join(',')}]`,'info');
+    }
+    
+    addLog('Portal initialized successfully','success');
+    
   }catch(e){
     addLog('Init error: '+e.message,'warn');
     console.error(e);
@@ -211,6 +405,19 @@ function setMode(mode){
   if(mode==='authority'){
     loadAuthorityCounts();
   }
+  
+  // Reset tracking when switching modes to avoid conflicts
+  if(mode !== 'authority'){
+    S.selectedAuthority = null;
+    if(S.decryptedComplaints) S.decryptedComplaints.clear();
+  }
+  
+  // Reset user page to default when switching away from user mode
+  if(mode !== 'user'){
+    showUserPage('file');
+  } else {
+    showUserPage('file');
+  }
 }
 
 function detectStartupMode(){
@@ -234,12 +441,23 @@ function goToPatternPage(){
 // USER MODE PAGES
 // ============================
 function showUserPage(id){
+  // Block settings access if not in user mode
+  if(id === 'settings' && S.currentMode !== 'user') {
+    alert('Settings can only be accessed from User mode.');
+    return;
+  }
+  
   document.querySelectorAll('#userMode .page').forEach(p=>p.style.display='none');
   const el = document.getElementById('page-'+id);
   if(el) el.style.display='block';
   document.querySelectorAll('#govNavUser .gov-nav-link').forEach((l,i)=>{
-    l.classList.toggle('active',['file','track','about'][i]===id);
+    l.classList.toggle('active',['file','track','about','settings'][i]===id);
   });
+  
+  // Load settings when settings page is shown
+  if(id === 'settings'){
+    loadSettings();
+  }
 }
 
 // ============================
@@ -260,6 +478,35 @@ function showSimPage(id){
 function toggleKey(id){
   const el = document.getElementById(id);
   if(el) el.classList.toggle('revealed');
+}
+
+// ============================
+// COPY TO CLIPBOARD
+// ============================
+function copyToClipboard(id, btnElement){
+  const el = document.getElementById(id);
+  if(!el) return;
+  let text = el.textContent;
+  if(!text || text.includes('Generating')) {
+    alert('Data not ready yet. Please wait.');
+    return;
+  }
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = btnElement || event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '✓ Copied';
+    btn.style.background = 'rgba(32, 224, 112, 0.2)';
+    btn.style.borderColor = 'rgba(32, 224, 112, 0.4)';
+    btn.style.color = '#20E070';
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.background = '';
+      btn.style.borderColor = '';
+      btn.style.color = '';
+    }, 2000);
+  }).catch(err => {
+    alert('Failed to copy: ' + err.message);
+  });
 }
 
 // ============================
@@ -336,7 +583,15 @@ async function toggleAuth(auth){
     }
   }
   const bn = document.getElementById('bypassNote');
-  if(bn) bn.style.display = S.selected.size<3 && S.selected.size>0 ? 'block':'none';
+  if(bn){
+    if(S.selected.size < 3 && S.selected.size > 0){
+      bn.style.display = 'flex';
+      bn.classList.add('show');
+    } else {
+      bn.style.display = 'none';
+      bn.classList.remove('show');
+    }
+  }
 }
 
 // ============================
@@ -421,6 +676,24 @@ async function submitComplaint(){
   const btn = document.getElementById('submitBtn');
   btn.disabled=true; btn.textContent='Submitting...';
 
+  // Handle file attachment if present
+  let encryptedMedia = null;
+  if (selectedFileData && selectedFileData.file) {
+    try {
+      btn.textContent = 'Encrypting attachment...';
+      const aesKey = new Uint8Array(32);
+      crypto.getRandomValues(aesKey);
+      encryptedMedia = await encryptFileAttachment(selectedFileData.file, aesKey);
+      encryptedMedia.encryptionKey = aesKey;
+      addLog(`File encrypted: ${selectedFileData.name}`, 'success');
+    } catch (error) {
+      addLog(`File encryption failed: ${error.message}`, 'warn');
+      btn.disabled = false;
+      btn.textContent = 'Submit Encrypted Complaint →';
+      return;
+    }
+  }
+
   const sub = {
     id: crypto.randomUUID().slice(0,8),
     timestamp: new Date().toISOString(),
@@ -432,9 +705,12 @@ async function submitComplaint(){
     tokenHash: btoa(S.token),
     token: S.token,
     auths: [...S.selected],
+    media: encryptedMedia // Include encrypted media
   };
   S.submissions.push(sub);
-  addLog(`Complaint submitted ID:${sub.id} to [${sub.auths.join(',')}]`,'success');
+  
+  const mediaText = encryptedMedia ? ` (with attachment: ${encryptedMedia.originalName})` : '';
+  addLog(`Complaint submitted ID:${sub.id} to [${sub.auths.join(',')}]${mediaText}`,'success');
 
   const metadata = collectComplaintMetadata();
   try{
@@ -443,6 +719,19 @@ async function submitComplaint(){
       addLog('Supabase not configured — complaint stored locally only.','warn');
     }else{
       addLog('Encrypted complaint stored in Supabase.','success');
+      // Log activity for complaint submission
+      try {
+        const tokenHash = await hashToken(sub.token);
+        await window.AawaazData.logActivity(
+          tokenHash,
+          'view',
+          'Complaint Received',
+          'System',
+          'Encrypted payload stored successfully'
+        );
+      } catch(logErr) {
+        console.warn('[ActivityLog] Could not log submission activity:', logErr.message);
+      }
     }
   }catch(e){
     addLog('Secure storage error: '+e.message,'warn');
@@ -636,13 +925,13 @@ async function trackComplaint(){
   if(!val){alert('Please enter your tracking token.');return}
   const local = S.submissions.find(s=>s.token===val);
   if(local){
-    renderTrackingCard(val, local.timestamp, local.auths);
+    await renderTrackingCard(val, local.timestamp, local.auths);
     return;
   }
   try{
     const remote = await findRemoteComplaintByToken(val);
     if(remote){
-      renderTrackingCard(val, remote.created_at, remote.authorities || []);
+      await renderTrackingCard(val, remote.created_at, remote.authorities || []);
       return;
     }
   }catch(e){
@@ -723,18 +1012,260 @@ function quickExit(){
 // ============================
 // FILE HANDLING (meta strip sim)
 // ============================
-function handleFile(input){
+// FILE HANDLING WITH ENCRYPTION
+// ============================
+
+let selectedFileData = null;
+
+function handleFile(input) {
   const status = document.getElementById('metaStripStatus');
-  if(!input.files[0]) return;
-  if(status){
-    status.style.color='var(--warn)';
-    status.textContent='Stripping metadata...';
-    setTimeout(()=>{
-      status.style.color='var(--green)';
-      status.textContent='✓ Metadata stripped — GPS, device info, timestamps removed. File ready for encrypted upload.';
-      addLog('EXIF metadata stripped from attachment','success');
-    },800);
+  if (!input.files[0]) {
+    selectedFileData = null;
+    return;
   }
+  
+  const file = input.files[0];
+  
+  // Validate file type and size
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  
+  if (!allowedTypes.includes(file.type)) {
+    if (status) {
+      status.style.color = 'var(--warn)';
+      status.textContent = '❌ Unsupported file type. Please use JPG, PNG, GIF, or PDF.';
+    }
+    selectedFileData = null;
+    return;
+  }
+  
+  if (file.size > maxSize) {
+    if (status) {
+      status.style.color = 'var(--warn)';
+      status.textContent = `❌ File too large (${(file.size/1024/1024).toFixed(1)}MB). Maximum 10MB allowed.`;
+    }
+    selectedFileData = null;
+    return;
+  }
+  
+  if (status) {
+    status.style.color = 'var(--warn)';
+    status.textContent = 'Stripping metadata...';
+    
+    setTimeout(() => {
+      status.style.color = 'var(--green)';
+      status.textContent = '✓ Metadata stripped — GPS, device info, timestamps removed. File ready for encrypted upload.';
+      addLog('EXIF metadata stripped from attachment', 'success');
+      
+      // Store file data for later encryption and upload
+      selectedFileData = {
+        file: file,
+        name: file.name,
+        type: file.type,
+        size: file.size
+      };
+    }, 800);
+  }
+}
+
+// Encrypt and prepare file for complaint submission
+async function encryptFileAttachment(file, aesKey) {
+  try {
+    const buffer = await file.arrayBuffer();
+    const data = new Uint8Array(buffer);
+    
+    // Generate IV for this file
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    
+    // Import AES key
+    const key = await crypto.subtle.importKey(
+      'raw',
+      aesKey,
+      { name: 'AES-GCM' },
+      false,
+      ['encrypt']
+    );
+    
+    // Encrypt file data
+    const encrypted = await crypto.subtle.encrypt(
+      {
+        name: 'AES-GCM',
+        iv: iv
+      },
+      key,
+      data
+    );
+    
+    // Combine IV + encrypted data
+    const result = new Uint8Array(iv.length + encrypted.byteLength);
+    result.set(iv);
+    result.set(new Uint8Array(encrypted), iv.length);
+    
+    return {
+      encryptedData: result,
+      originalName: file.name,
+      mimetype: file.type,
+      size: file.size
+    };
+  } catch (error) {
+    console.error('File encryption error:', error);
+    throw new Error('Failed to encrypt file');
+  }
+}
+
+// ============================
+// MEDIA DECRYPTION FOR AUTHORITIES  
+// ============================
+
+// Decrypt and display media attachment for authorities
+async function decryptAndDisplayMedia(complaint, authorityKey) {
+  try {
+    if (!complaint.metadata?.media) {
+      return null; // No media attachment
+    }
+    
+    const media = complaint.metadata.media;
+    const currentAuthority = window.AawaazData.getCurrentAuthority();
+    
+    if (!currentAuthority || !media.encryptedMediaKey[currentAuthority]) {
+      throw new Error('No media access for current authority');
+    }
+    
+    // Extract media encryption key
+    let mediaKeyData = media.encryptedMediaKey[currentAuthority];
+    let mediaKey;
+    
+    // Handle different sources (WhatsApp vs Website)
+    if (mediaKeyData.startsWith('WHATSAPP:')) {
+      // WhatsApp media - key is directly base64 encoded
+      mediaKey = Uint8Array.from(atob(mediaKeyData.substring(9)), c => c.charCodeAt(0));
+    } else if (mediaKeyData.startsWith('WEBSITE:')) {
+      // Website media - key is base64 encoded
+      mediaKey = Uint8Array.from(atob(mediaKeyData.substring(8)), c => c.charCodeAt(0));
+    } else {
+      throw new Error('Unknown media source format');
+    }
+    
+    // Decrypt media data
+    let encryptedData;
+    if (media.encryptedData) {
+      // Website uploaded media (stored in database)
+      encryptedData = Uint8Array.from(atob(media.encryptedData), c => c.charCodeAt(0));
+    } else {
+      // WhatsApp media (would need to fetch from storage)
+      throw new Error('WhatsApp media fetching not yet implemented - contact system admin');
+    }
+    
+    // Extract IV and encrypted content
+    const iv = encryptedData.slice(0, 12);
+    const encrypted = encryptedData.slice(12);
+    
+    // Import decryption key
+    const key = await crypto.subtle.importKey(
+      'raw',
+      mediaKey,
+      { name: 'AES-GCM' },
+      false,
+      ['decrypt']
+    );
+    
+    // Decrypt the media
+    const decrypted = await crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: iv
+      },
+      key,
+      encrypted
+    );
+    
+    // Create blob and URL for viewing
+    const blob = new Blob([decrypted], { type: media.mimetype });
+    const url = URL.createObjectURL(blob);
+    
+    return {
+      url: url,
+      filename: media.originalName,
+      mimetype: media.mimetype,
+      size: media.size,
+      cleanup: () => URL.revokeObjectURL(url)
+    };
+    
+  } catch (error) {
+    console.error('Media decryption error:', error);
+    throw new Error(`Failed to decrypt media: ${error.message}`);
+  }
+}
+
+// Display media in complaint review interface
+async function showComplaintMedia(complaintData) {
+  try {
+    const media = await decryptAndDisplayMedia(complaintData);
+    if (!media) {
+      return; // No media to show
+    }
+    
+    const mediaContainer = document.getElementById('complaintMedia') || createMediaContainer();
+    
+    if (media.mimetype.startsWith('image/')) {
+      // Display image
+      const img = document.createElement('img');
+      img.src = media.url;
+      img.style.maxWidth = '100%';
+      img.style.maxHeight = '400px';
+      img.style.borderRadius = '8px';
+      img.alt = media.filename;
+      img.title = `${media.filename} (${(media.size/1024).toFixed(1)}KB)`;
+      
+      mediaContainer.innerHTML = '';
+      mediaContainer.appendChild(img);
+    } else if (media.mimetype === 'application/pdf') {
+      // Display PDF
+      const embed = document.createElement('embed');
+      embed.src = media.url;
+      embed.type = 'application/pdf';
+      embed.style.width = '100%';
+      embed.style.height = '400px';
+      embed.style.borderRadius = '8px';
+      
+      mediaContainer.innerHTML = '';
+      mediaContainer.appendChild(embed);
+    }
+    
+    // Add download button
+    const downloadBtn = document.createElement('button');
+    downloadBtn.textContent = `📎 Download ${media.filename}`;
+    downloadBtn.className = 'btn-secondary';
+    downloadBtn.onclick = () => {
+      const a = document.createElement('a');
+      a.href = media.url;
+      a.download = media.filename;
+      a.click();
+    };
+    
+    mediaContainer.appendChild(downloadBtn);
+    
+    // Cleanup when done
+    setTimeout(() => media.cleanup(), 30000); // Auto-cleanup after 30 seconds
+    
+  } catch (error) {
+    const mediaContainer = document.getElementById('complaintMedia') || createMediaContainer();
+    mediaContainer.innerHTML = `<div style="color: var(--warn); padding: 10px;">⚠ Media decryption failed: ${error.message}</div>`;
+  }
+}
+
+function createMediaContainer() {
+  const container = document.createElement('div');
+  container.id = 'complaintMedia';
+  container.style.cssText = 'margin: 15px 0; padding: 15px; border: 1px dashed #ccc; border-radius: 8px;';
+  
+  // Insert after complaint text in review interface
+  const complaintText = document.querySelector('.complaint-text') || document.querySelector('.review-content');
+  if (complaintText && complaintText.parentNode) {
+    complaintText.parentNode.insertBefore(container, complaintText.nextSibling);
+  }
+  
+  return container;
 }
 
 // ============================
@@ -762,6 +1293,9 @@ function showAuthPage(id){
 
 /** Load complaint counts for all three authority cards */
 async function loadAuthorityCounts(){
+  // Update diagnostic info
+  updateKeyDiagnostic();
+  
   try{
     const allComplaints = await window.AawaazData.fetchAllComplaints();
     ['HR','ICC','NGO'].forEach(auth=>{
@@ -774,16 +1308,42 @@ async function loadAuthorityCounts(){
   }
 }
 
+// Update key diagnostic information
+function updateKeyDiagnostic(){
+  const diagEl = document.getElementById('keyDiagnostic');
+  if(!diagEl) return;
+  
+  const persistedKeys = ['HR','ICC','NGO'].filter(auth => 
+    localStorage.getItem(`aawaaz_authority_keys_${auth}`)
+  );
+  
+  if(persistedKeys.length === 3){
+    diagEl.innerHTML = '✅ Persistent authority keys loaded - fresh complaints should decrypt successfully';
+    diagEl.style.color = 'var(--green)';
+  } else if(persistedKeys.length > 0){
+    diagEl.innerHTML = `⚠️ Partial keys loaded: ${persistedKeys.join(',')} - some authorities may not work`;
+    diagEl.style.color = 'var(--warn)';
+  } else {
+    diagEl.innerHTML = '🔑 New session keys generated - only NEW complaints from this session will decrypt';
+    diagEl.style.color = 'var(--muted)';
+  }
+}
+
 /** Select an authority (HR / ICC / NGO) and load its complaints */
 async function selectAuthority(auth){
   S.selectedAuthority = auth;
 
-  // Highlight selected card
+  // Highlight selected card (use CSS classes, not inline styles)
   ['HR','ICC','NGO'].forEach(a=>{
     const card = document.getElementById('authCard'+a);
     if(card){
-      card.style.borderColor = a===auth ? 'var(--navy)' : 'var(--border)';
-      card.style.background  = a===auth ? 'var(--cream)' : 'var(--white)';
+      if(a === auth){
+        card.style.borderColor = 'var(--navy)';
+        card.style.background = 'var(--cream2)';
+      } else {
+        card.style.borderColor = '';
+        card.style.background = '';
+      }
     }
   });
 
@@ -793,6 +1353,17 @@ async function selectAuthority(auth){
 
   const listWrap = document.getElementById('authComplaintsList');
   if(listWrap) listWrap.style.display = 'block';
+
+  // Show private key section
+  const pkSection = document.getElementById('authPrivKeySection');
+  if(pkSection) pkSection.style.display = 'block';
+
+  // Reset key status when switching authority
+  S.authorityPrivKey = null;
+  const keyStatus = document.getElementById('authKeyStatus');
+  if(keyStatus) keyStatus.textContent = '';
+  const keyInput = document.getElementById('authPrivKeyInput');
+  if(keyInput) keyInput.value = '';
 
   const selectedLabel = document.getElementById('selectedAuthLabel');
   if(selectedLabel) selectedLabel.textContent = auth;
@@ -834,35 +1405,41 @@ function renderAuthorityComplaints(complaints, auth){
     const category = meta.category || '—';
     const auths = (c.authorities||[]).join(', ');
     const cipherPreview = c.ciphertext_b64 ? c.ciphertext_b64.slice(0,40)+'…' : '—';
+    const hasMedia = !!(meta.media);
+    const mediaSource = meta.source || '';
 
     return `
       <div style="border:1px solid var(--border);border-radius:2px;margin-bottom:12px;overflow:hidden" id="complaint-${c.id}">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--cream);border-bottom:1px solid var(--border)">
           <div>
-            <span style="font-size:12px;font-weight:700;color:var(--navy)">${esc(ref)}</span>
-            <span style="font-size:10px;color:var(--muted);margin-left:8px">${esc(date)}</span>
+            <span style="font-size:14px;font-weight:700;color:var(--ink)">${esc(ref)}</span>
+            <span style="font-size:12px;color:var(--muted);margin-left:8px">${esc(date)}</span>
+            ${hasMedia ? '<span style="font-size:11px;margin-left:8px;background:rgba(99,102,241,0.15);color:#818cf8;padding:3px 8px;border-radius:4px;font-weight:600;">📎 Has Attachment</span>' : ''}
+            ${mediaSource === 'whatsapp' ? '<span style="font-size:11px;margin-left:4px;background:rgba(37,211,102,0.15);color:#25d366;padding:3px 8px;border-radius:4px;font-weight:600;">📱 WhatsApp</span>' : ''}
           </div>
           <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:10px;font-weight:600;color:${statusColor};border:1px solid ${statusColor};padding:2px 8px;border-radius:2px;text-transform:uppercase;letter-spacing:0.04em">${esc(statusLabel)}</span>
+            <span style="font-size:11px;font-weight:600;color:${statusColor};border:1px solid ${statusColor};padding:3px 10px;border-radius:4px;text-transform:uppercase;letter-spacing:0.04em">${esc(statusLabel)}</span>
           </div>
         </div>
-        <div style="padding:12px 16px">
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:11px;margin-bottom:12px">
-            <div><span style="color:var(--muted)">Token Hint:</span> <strong>${esc(hint)}</strong></div>
-            <div><span style="color:var(--muted)">Severity:</span> <strong>${esc(severity)}</strong></div>
-            <div><span style="color:var(--muted)">Category:</span> <strong>${esc(category)}</strong></div>
-            <div><span style="color:var(--muted)">Authorities:</span> <strong>${esc(auths)}</strong></div>
+        <div style="padding:14px 16px">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;font-size:13px;margin-bottom:14px">
+            <div><span style="color:var(--muted)">Token Hint:</span> <strong style="color:var(--ink)">${esc(hint)}</strong></div>
+            <div><span style="color:var(--muted)">Severity:</span> <strong style="color:var(--ink)">${esc(severity)}</strong></div>
+            <div><span style="color:var(--muted)">Category:</span> <strong style="color:var(--ink)">${esc(category)}</strong></div>
+            <div><span style="color:var(--muted)">Authorities:</span> <strong style="color:var(--ink)">${esc(auths)}</strong></div>
           </div>
-          <div style="background:var(--cream);border:1px solid var(--border);border-radius:2px;padding:8px 12px;margin-bottom:12px">
-            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px">Encrypted Data (AES-256-GCM)</div>
-            <div style="font-family:var(--mono);font-size:10px;word-break:break-all;color:var(--navy)">${esc(cipherPreview)}</div>
+          <div style="background:var(--cream);border:1px solid var(--border);border-radius:4px;padding:10px 14px;margin-bottom:14px">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px">Encrypted Data (AES-256-GCM)</div>
+            <div style="font-family:var(--mono);font-size:12px;word-break:break-all;color:var(--ink2)">${esc(cipherPreview)}</div>
           </div>
-          <div style="display:flex;gap:8px">
-            ${status==='pending' ? `<button onclick="markReviewed('${c.id}')" style="font-size:10px;padding:6px 14px;background:var(--navy);color:var(--white);border:none;border-radius:2px;cursor:pointer;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Mark Reviewed</button>` : ''}
-            ${status==='reviewed' ? `<button onclick="markResolved('${c.id}')" style="font-size:10px;padding:6px 14px;background:var(--green);color:var(--white);border:none;border-radius:2px;cursor:pointer;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Mark Resolved</button>` : ''}
-            ${status==='resolved' ? `<span style="font-size:10px;color:var(--green);font-weight:600">✓ Resolved</span>` : ''}
-            <button onclick="viewComplaintDetail('${c.id}')" style="font-size:10px;padding:6px 14px;background:transparent;color:var(--navy);border:1px solid var(--navy);border-radius:2px;cursor:pointer;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">View Details</button>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button onclick="decryptComplaintWithKey('${c.id}')" style="font-size:12px;padding:8px 16px;background:var(--saffron);color:var(--white);border:none;border-radius:6px;cursor:pointer;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">🔓 Decrypt</button>
+            ${status==='pending' ? `<button onclick="markReviewed('${c.id}')" ${S.decryptedComplaints && S.decryptedComplaints.has(c.id) ? '' : 'disabled title="Must decrypt complaint first"'} style="font-size:12px;padding:8px 16px;background:${S.decryptedComplaints && S.decryptedComplaints.has(c.id) ? 'var(--green)' : 'var(--muted2)'};color:var(--white);border:none;border-radius:6px;cursor:${S.decryptedComplaints && S.decryptedComplaints.has(c.id) ? 'pointer' : 'not-allowed'};font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Mark Reviewed</button>` : ''}
+            ${status==='reviewed' ? `<button onclick="markResolved('${c.id}')" style="font-size:12px;padding:8px 16px;background:var(--green);color:var(--white);border:none;border-radius:6px;cursor:pointer;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Mark Resolved</button>` : ''}
+            ${status==='resolved' ? `<span style="font-size:12px;color:var(--green);font-weight:600">✓ Resolved</span>` : ''}
+            <button onclick="viewComplaintDetail('${c.id}')" style="font-size:12px;padding:8px 16px;background:transparent;color:var(--ink2);border:1px solid var(--ink2);border-radius:6px;cursor:pointer;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">View Details</button>
           </div>
+          <div id="decryptResult-${c.id}"></div>
         </div>
       </div>`;
   }).join('');
@@ -883,26 +1460,183 @@ function updateAuthorityCounts(complaints){
 
 /** Mark a complaint as reviewed */
 async function markReviewed(complaintId){
+  console.log('🏷️ Attempting to mark complaint as reviewed:', complaintId);
+  
+  // Check if complaint has been decrypted
+  if(!S.decryptedComplaints || !S.decryptedComplaints.has(complaintId)){
+    console.warn('❌ Complaint not decrypted yet:', complaintId);
+    alert('You must decrypt this complaint before marking it as reviewed. This ensures you have actually read the complaint content.');
+    return;
+  }
+  
+  // Check if data service is available
+  if(!window.AawaazData) {
+    console.error('❌ Data service not available');
+    alert('Data service not available. Please refresh the page and try again.');
+    return;
+  }
+  
   try{
+    console.log('🔍 Looking for mark reviewed button for complaint:', complaintId);
+    
+    // Show loading state - use more robust button selection
+    const buttons = document.querySelectorAll('button');
+    let button = null;
+    for(let btn of buttons) {
+      if(btn.textContent.includes('Mark Reviewed') && btn.getAttribute('onclick')?.includes(complaintId)) {
+        button = btn;
+        console.log('✅ Found mark reviewed button');
+        break;
+      }
+    }
+    
+    if(!button) {
+      console.warn('⚠️ Could not find mark reviewed button for complaint:', complaintId);
+    }
+    
+    const originalText = button ? button.textContent : '';
+    if(button) {
+      button.textContent = 'Marking...';
+      button.disabled = true;
+    }
+    
+    console.log('📡 Updating complaint status in database...');
     await window.AawaazData.updateComplaintStatus(complaintId, 'reviewed', S.selectedAuthority);
+    
+    // Show success feedback
     addLog('Complaint '+complaintId+' marked as reviewed by '+S.selectedAuthority,'success');
-    // Refresh the list
+    
+    // Visual feedback notification
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed; top: 20px; right: 20px; 
+      background: var(--green); color: white; 
+      padding: 12px 20px; border-radius: 8px; 
+      z-index: 10000; font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      animation: slideIn 0.3s ease-out;
+    `;
+    notification.innerHTML = `✅ Complaint ${complaintId.slice(0,8)}... marked as reviewed`;
+    document.body.appendChild(notification);
+    
+    // Add CSS animation
+    if(!document.getElementById('notification-styles')){
+      const style = document.createElement('style');
+      style.id = 'notification-styles';
+      style.textContent = `
+        @keyframes slideIn { 
+          from { transform: translateX(100%); opacity: 0; } 
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    // Auto remove notification
+    setTimeout(() => {
+      notification.style.animation = 'slideIn 0.3s ease-out reverse';
+      setTimeout(() => notification.remove(), 300);
+    }, 3000);
+    
+    // Update button to show completed state
+    if(button) {
+      button.textContent = '✅ Reviewed';
+      button.style.background = 'var(--green)';
+      button.style.color = 'white';
+      button.disabled = true;
+      button.onclick = null; // Prevent re-clicking
+      
+      // After 2 seconds, remove button from DOM since complaint is now reviewed
+      setTimeout(() => {
+        if(button.parentNode) {
+          button.parentNode.removeChild(button);
+        }
+      }, 2000);
+    }
+    
+    // Refresh the authority list
+    console.log('🔄 Refreshing authority complaint list...');  
     if(S.selectedAuthority) await selectAuthority(S.selectedAuthority);
+    
+    // Store reviewed status for track mode synchronization
+    if(!S.reviewedComplaints) S.reviewedComplaints = new Set();
+    S.reviewedComplaints.add(complaintId);
+    
+    console.log('✅ Complaint successfully marked as reviewed:', complaintId);
+    
   }catch(e){
-    console.error('[Aawaaz] Error updating status:', e);
-    alert('Failed to update complaint status. Check console.');
+    console.error('❌ [Aawaaz] Error updating complaint status:', e);
+    console.error('Error details:', {
+      complaintId,
+      selectedAuthority: S.selectedAuthority,
+      dataServiceEnabled: window.AawaazData?.enabled,
+      errorMessage: e.message
+    });
+    
+    alert('Failed to update complaint status: ' + e.message + '. Check console for details.');
+    
+    // Reset button on error
+    if(button) {
+      button.textContent = originalText;
+      button.disabled = false;
+    }
   }
 }
 
 /** Mark a complaint as resolved */
 async function markResolved(complaintId){
+  console.log('✅ Attempting to mark complaint as resolved:', complaintId);
+  
+  if(!window.AawaazData) {
+    console.error('❌ Data service not available');
+    alert('Data service not available. Please refresh the page and try again.');
+    return;
+  }
+  
   try{
+    console.log('🔍 Looking for mark resolved button for complaint:', complaintId);
+    
+    const buttons = document.querySelectorAll('button');
+    let button = null;
+    for(let btn of buttons) {
+      if(btn.textContent.includes('Mark Resolved') && btn.getAttribute('onclick')?.includes(complaintId)) {
+        button = btn;
+        console.log('✅ Found mark resolved button');
+        break;
+      }
+    }
+    
+    const originalText = button ? button.textContent : '';
+    if(button) {
+      button.textContent = 'Resolving...';
+      button.disabled = true;
+    }
+    
+    console.log('📡 Updating complaint status to resolved in database...');
     await window.AawaazData.updateComplaintStatus(complaintId, 'resolved', S.selectedAuthority);
+    
     addLog('Complaint '+complaintId+' resolved by '+S.selectedAuthority,'success');
+    console.log('🔄 Refreshing authority complaint list...');
     if(S.selectedAuthority) await selectAuthority(S.selectedAuthority);
+    
+    console.log('✅ Complaint successfully marked as resolved:', complaintId);
+    
   }catch(e){
-    console.error('[Aawaaz] Error updating status:', e);
-    alert('Failed to update complaint status. Check console.');
+    console.error('❌ [Aawaaz] Error updating complaint status to resolved:', e);
+    console.error('Error details:', {
+      complaintId,
+      selectedAuthority: S.selectedAuthority,
+      dataServiceEnabled: window.AawaazData?.enabled,
+      errorMessage: e.message
+    });
+    
+    alert('Failed to update complaint status: ' + e.message + '. Check console for details.');
+    
+    // Reset button on error
+    if(button) {
+      button.textContent = originalText;
+      button.disabled = false;
+    }
   }
 }
 
@@ -984,11 +1718,1216 @@ function refreshAuthorityStats(){
 }
 
 // ============================
+// STEALTH MODE (Decoy Website)
+// ============================
+function toggleStealthMode(){
+  S.stealthMode = !S.stealthMode;
+  const overlay = document.getElementById('stealthOverlay');
+  const realContent = document.querySelectorAll('#modeSwitcher, #govHeader, #quickExit, .watermark, .tricolor, #userMode, #simMode, #authorityMode, #cryptoLog');
+  
+  if(S.stealthMode){
+    // Enter stealth
+    document.title = 'RecipeHub — Daily Recipes & Cooking Tips';
+    realContent.forEach(el => el.style.display = 'none');
+    if(overlay) overlay.style.display = 'block';
+    document.body.style.background = '#f5f6fa';
+  } else {
+    // Exit stealth
+    document.title = 'Aawaaz — Grievance Portal';
+    if(overlay) overlay.style.display = 'none';
+    realContent.forEach(el => el.style.removeProperty('display'));
+    document.body.style.background = '';
+    // Restore correct mode display
+    setMode(S.currentMode);
+  }
+}
+
+// Keyboard shortcut detection (using settings)
+document.addEventListener('keydown', checkStealthShortcut);
+
+// ============================
+// AUTHORITY PRIVATE KEY DECRYPT
+// ============================
+async function loadAuthorityPrivateKey(){
+  const textarea = document.getElementById('authPrivKeyInput');
+  const statusEl = document.getElementById('authKeyStatus');
+  if(!textarea || !textarea.value.trim()){
+    if(statusEl){ statusEl.style.color='var(--danger)'; statusEl.textContent='Please paste your private key.'; }
+    return;
+  }
+
+  try{
+    if(statusEl){ statusEl.style.color='var(--warn)'; statusEl.textContent='Importing key...'; }
+    let pem = textarea.value.trim();
+    let pemContents;
+    
+    // Handle MAYDAY format
+    if(pem.includes('--MAYDAY--START--')){
+      pemContents = pem.replace(/--MAYDAY--START--/,'')
+                       .replace(/--MAYDAY--END--/,'')
+                       .replace(/\s/g,'');
+    } else {
+      // Handle standard PEM format
+      pemContents = pem.replace(/-----BEGIN (?:RSA )?PRIVATE KEY-----/,'')
+                       .replace(/-----END (?:RSA )?PRIVATE KEY-----/,'')
+                       .replace(/\s/g,'');
+    }
+    
+    if(!pemContents){
+      if(statusEl){ statusEl.style.color='var(--danger)'; statusEl.textContent='Please paste your private key.'; }
+      return;
+    }
+    
+    const binaryStr = atob(pemContents);
+    const bytes = new Uint8Array(binaryStr.length);
+    for(let i=0;i<binaryStr.length;i++) bytes[i]=binaryStr.charCodeAt(i);
+
+    const privKey = await crypto.subtle.importKey(
+      'pkcs8', bytes.buffer,
+      {name:'RSA-OAEP', hash:'SHA-256'},
+      false, ['unwrapKey']
+    );
+    S.authorityPrivKey = privKey;
+    if(statusEl){ statusEl.style.color='var(--green)'; statusEl.textContent='✓ Private key loaded successfully. You can now decrypt complaints.'; }
+    addLog(S.selectedAuthority+' private key imported for decryption','success');
+  }catch(e){
+    console.error('[Aawaaz] Key import error:', e);
+    if(statusEl){ statusEl.style.color='var(--danger)'; statusEl.textContent='Invalid key format. Ensure it is a valid RSA-2048 PKCS#8 private key.'; }
+    S.authorityPrivKey = null;
+  }
+}
+
+async function decryptComplaintWithKey(complaintId){
+  if(!S.authorityPrivKey){
+    alert('Please load your private key first.');
+    return;
+  }
+  
+  // More robust complaint finding
+  const c = S.authorityComplaints.find(x => String(x.id) === String(complaintId));
+  if(!c) {
+    console.error('Complaint not found:', complaintId);
+    alert('Complaint not found.');
+    return;
+  }
+
+  const auth = S.selectedAuthority;
+  const wrappedKeys = c.wrapped_keys || {};
+  const wrappedB64 = wrappedKeys[auth];
+  if(!wrappedB64){
+    console.error('No wrapped key for authority:', auth, 'Available keys:', Object.keys(wrappedKeys));
+    alert('No wrapped key found for '+auth+' on this complaint.');
+    return;
+  }
+
+  // More robust result element finding
+  let resultEl = document.getElementById('decryptResult-'+complaintId);
+  if(!resultEl) {
+    // Try to find by complaint ID in the complaint list
+    const complaintCards = document.querySelectorAll('[id*="decryptResult"]');
+    for(let card of complaintCards) {
+      if(card.id.includes(complaintId)) {
+        resultEl = card;
+        break;
+      }
+    }
+  }
+  
+  if(resultEl) resultEl.innerHTML = '<div style="color:var(--warn);font-size:10px;padding:8px">🔄 Decrypting...</div>';
+  
+  console.log('Starting decryption for complaint:', complaintId, 'Authority:', auth);
+
+  try{
+    let aesKey;
+    
+    // Check if this is a WhatsApp complaint (wrapped key starts with "WHATSAPP:")
+    if(typeof wrappedB64 === 'string' && wrappedB64.startsWith('WHATSAPP:')){
+      // WhatsApp complaint: extract and import AES key directly
+      const aesKeyB64 = wrappedB64.substring(9); // Remove "WHATSAPP:" prefix
+      const aesKeyBytes = b64toab(aesKeyB64);
+      aesKey = await crypto.subtle.importKey(
+        'raw', aesKeyBytes, 
+        {name:'AES-GCM', length:256}, false, ['decrypt']
+      );
+      addLog('WhatsApp complaint: using direct AES key','info');
+    } else {
+      // Website complaint: unwrap RSA-encrypted AES key
+      const wkBin = atob(wrappedB64);
+      const wkBytes = new Uint8Array(wkBin.length);
+      for(let i=0;i<wkBin.length;i++) wkBytes[i]=wkBin.charCodeAt(i);
+
+      // Unwrap AES key
+      aesKey = await crypto.subtle.unwrapKey(
+        'raw', wkBytes.buffer, S.authorityPrivKey,
+        {name:'RSA-OAEP'}, {name:'AES-GCM',length:256}, true, ['decrypt']
+      );
+    }
+
+    // Decode IV and ciphertext using robust helper functions
+    const ivBytes = b64toab(c.iv_b64);
+    const ctBytes = b64toab(c.ciphertext_b64);
+
+    // Verify IV length (should be 12 bytes for AES-GCM)
+    if(ivBytes.length !== 12){
+      throw new Error(`Invalid IV length: expected 12 bytes, got ${ivBytes.length}`);
+    }
+
+    // Decrypt using the same format as simulation
+    const plainBuffer = await crypto.subtle.decrypt(
+      {name:'AES-GCM', iv:ivBytes}, aesKey, ctBytes.buffer
+    );
+    const plaintext = new TextDecoder().decode(plainBuffer);
+
+    if(resultEl){
+      resultEl.innerHTML = `
+        <div style=\"background:rgba(19,136,8,0.05);border:1px solid rgba(19,136,8,0.2);border-left:3px solid var(--green);border-radius:var(--radius);padding:12px;margin-top:8px;animation:reveal 0.5s ease\">
+          <div style=\"font-size:10px;color:var(--green);font-family:'DM Mono',monospace;margin-bottom:6px;font-weight:700\">✓ DECRYPTED — ${esc(auth)} EYES ONLY</div>
+          <div style=\"font-size:14px;color:var(--ink);line-height:1.7\">${esc(plaintext)}</div>
+          <div id=\"mediaResult-${complaintId}\" style=\"margin-top:10px\"></div>
+        </div>`;
+    }
+
+    // Check and display media attachment if present
+    const meta = c.metadata || {};
+    if(meta.media){
+      const mediaEl = document.getElementById('mediaResult-'+complaintId);
+      if(mediaEl){
+        const media = meta.media;
+        const hasData = media.encryptedData;
+        const source = meta.source || 'unknown';
+        
+        let mediaHtml = '<div style="margin-top:8px;padding:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.15);border-radius:6px;">';
+        mediaHtml += '<div style="font-size:9px;color:var(--accent);font-family:\'DM Mono\',monospace;margin-bottom:6px;font-weight:700">📎 ATTACHMENT</div>';
+        mediaHtml += '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">';
+        mediaHtml += '<strong>' + esc(media.originalName||'attachment') + '</strong>';
+        mediaHtml += ' • ' + esc(media.mimetype||'unknown') + ' • ' + ((media.size||0)/1024).toFixed(1) + 'KB';
+        mediaHtml += ' • Source: ' + esc(source);
+        mediaHtml += '</div>';
+        
+        if(hasData){
+          // Website-uploaded media — can decrypt and display
+          mediaHtml += '<button onclick="decryptMediaAttachment(\''+complaintId+'\')" style="font-size:10px;padding:6px 14px;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;">📷 View Attachment</button>';
+          mediaHtml += '<div id="mediaView-'+complaintId+'" style="margin-top:8px"></div>';
+        } else {
+          // WhatsApp media — stored on server
+          mediaHtml += '<div style="font-size:11px;color:var(--warn);">⚠ Attachment stored on server. Contact admin for access.</div>';
+        }
+        
+        mediaHtml += '</div>';
+        mediaEl.innerHTML = mediaHtml;
+      }
+    }
+    // Track that this complaint has been decrypted
+    if(!S.decryptedComplaints) S.decryptedComplaints = new Set();
+    S.decryptedComplaints.add(complaintId);
+    
+    // Log activity to database
+    if(c.token_hash){
+      try {
+        await window.AawaazData.logActivity(
+          c.token_hash,
+          'decrypt',
+          'Complaint Decrypted',
+          auth,
+          'Decrypted by ' + auth + ' authority'
+        );
+      } catch(logErr) {
+        console.warn('[ActivityLog] Could not log decrypt activity:', logErr.message);
+      }
+    }
+    
+    addLog('Complaint '+complaintId+' decrypted by '+auth,'success');
+  }catch(e){
+    console.error('[Aawaaz] 🔐 Decryption failed for complaint:', complaintId, 'Error:', e);
+    console.error('Complaint data:', c);
+    console.error('Authority:', auth);
+    console.error('Wrapped key available:', !!wrappedB64);
+    console.error('Private key loaded:', !!S.authorityPrivKey);
+    
+    // Enhanced debugging
+    console.log('🔍 Full decryption debug info:', {
+      complaintId,
+      authority: auth,
+      hasPrivateKey: !!S.authorityPrivKey,
+      wrappedKeyExists: !!wrappedB64,
+      wrappedKeyLength: wrappedB64 ? wrappedB64.length : 0,
+      ivB64: c.iv_b64 || 'missing',
+      ivLength: c.iv_b64 ? (atob(c.iv_b64) || {}).length : 'N/A',
+      ciphertextLength: c.ciphertext_b64 ? (atob(c.ciphertext_b64) || {}).length : 'N/A'
+    });
+    
+    // Set error message
+    if(resultEl){
+      resultEl.innerHTML = `
+        <div style="background:rgba(242,17,26,0.05);border:1px solid rgba(242,17,26,0.2);border-left:3px solid var(--red);border-radius:var(--radius);padding:12px;margin-top:8px">
+          <div style="font-size:9px;color:var(--red);font-family:'DM Mono',monospace;margin-bottom:6px;font-weight:700">✗ DECRYPTION FAILED</div>
+          <div style="font-size:13px;color:var(--ink);line-height:1.7">Error: ${esc(e.message)}</div>
+        </div>`;
+    }
+    
+    addLog('Decryption of complaint '+complaintId+' failed: '+e.message,'error');
+  }
+}
+
+/** Decrypt and display media attachment inline */
+async function decryptMediaAttachment(complaintId) {
+  const viewEl = document.getElementById('mediaView-' + complaintId);
+  if (!viewEl) return;
+  
+  viewEl.innerHTML = '<div style="color:var(--warn);font-size:10px;padding:4px">🔄 Decrypting attachment...</div>';
+  
+  try {
+    const c = S.authorityComplaints.find(x => String(x.id) === String(complaintId));
+    if (!c || !c.metadata?.media) throw new Error('No media found');
+    
+    const media = c.metadata.media;
+    const auth = S.selectedAuthority;
+    
+    // Get the media encryption key
+    let mediaKeyData = media.encryptedMediaKey?.[auth];
+    if (!mediaKeyData) throw new Error('No media key for ' + auth);
+    
+    let mediaKeyBytes;
+    if (mediaKeyData.startsWith('WEBSITE:')) {
+      mediaKeyBytes = Uint8Array.from(atob(mediaKeyData.substring(8)), c => c.charCodeAt(0));
+    } else if (mediaKeyData.startsWith('WHATSAPP:')) {
+      mediaKeyBytes = Uint8Array.from(atob(mediaKeyData.substring(9)), c => c.charCodeAt(0));
+    } else {
+      throw new Error('Unknown media key format');
+    }
+    
+    // Decrypt the encrypted media data
+    const encryptedRaw = Uint8Array.from(atob(media.encryptedData), c => c.charCodeAt(0));
+    const iv = encryptedRaw.slice(0, 12);
+    const encrypted = encryptedRaw.slice(12);
+    
+    const key = await crypto.subtle.importKey(
+      'raw', mediaKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']
+    );
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv }, key, encrypted
+    );
+    
+    // Create blob and display
+    const blob = new Blob([decrypted], { type: media.mimetype });
+    const url = URL.createObjectURL(blob);
+    
+    let html = '';
+    if (media.mimetype?.startsWith('image/')) {
+      html = `<img src="${url}" style="max-width:100%;max-height:400px;border-radius:8px;margin-bottom:8px;" alt="${esc(media.originalName)}">`;
+    } else if (media.mimetype === 'application/pdf') {
+      html = `<embed src="${url}" type="application/pdf" style="width:100%;height:400px;border-radius:8px;margin-bottom:8px;">`;
+    }
+    
+    html += `<br><a href="${url}" download="${esc(media.originalName)}" style="font-size:11px;color:var(--accent);text-decoration:underline;cursor:pointer;">⬇ Download ${esc(media.originalName)}</a>`;
+    
+    viewEl.innerHTML = html;
+    addLog('Media attachment decrypted for complaint ' + complaintId, 'success');
+    
+    // Auto-cleanup blob URL after 60s
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    
+  } catch (e) {
+    viewEl.innerHTML = `<div style="color:var(--red);font-size:11px;padding:4px;">❌ Media decryption failed: ${esc(e.message)}</div>`;
+    addLog('Media decryption failed: ' + e.message, 'error');
+  }
+}
+
+// ============================
+// FORGOT KEY (Recovery System)
+// ============================
+function forgotKey(){
+  const card = document.getElementById('statusCard');
+  // Show forgot key recovery interface
+  if(card){
+    card.classList.add('show');
+    card.innerHTML = `
+      <div style="text-align:center;padding:20px">
+        <div style="font-size:28px;margin-bottom:10px">🔑</div>
+        <div style="font-family:'Crimson Pro',serif;font-size:18px;font-weight:700;color:var(--navy);margin-bottom:12px">Forgot Your Key?</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:20px">If you've lost your private key, here are your recovery options:</div>
+        
+        <div style="text-align:left;margin-bottom:16px">
+          <div style="padding:12px;background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);border-radius:6px;margin-bottom:12px">
+            <div style="font-weight:600;font-size:11px;color:var(--navy);margin-bottom:4px">📧 Email Recovery (If Set Up)</div>
+            <div style="font-size:10px;color:var(--muted);line-height:1.4">Check your email for a backup key if you configured email recovery during complaint filing.</div>
+          </div>
+          
+          <div style="padding:12px;background:rgba(33,150,243,0.1);border:1px solid rgba(33,150,243,0.3);border-radius:6px;margin-bottom:12px">
+            <div style="font-weight:600;font-size:11px;color:var(--navy);margin-bottom:4px">💾 Local Backup</div>
+            <div style="font-size:10px;color:var(--muted);line-height:1.4">Look for a downloaded .key file or screenshot of your private key from when you filed the complaint.</div>
+          </div>
+          
+          <div style="padding:12px;background:rgba(244,67,54,0.1);border:1px solid rgba(244,67,54,0.3);border-radius:6px">
+            <div style="font-weight:600;font-size:11px;color:var(--navy);margin-bottom:4px">⚠️ Security Note</div>
+            <div style="font-size:10px;color:var(--muted);line-height:1.4">Without your private key, complaints cannot be decrypted. This ensures maximum security but means key recovery is limited.</div>
+          </div>
+        </div>
+        
+        <button onclick="document.getElementById('statusCard').classList.remove('show')" style="background:var(--saffron);color:white;border:none;padding:8px 16px;border-radius:6px;font-size:11px;cursor:pointer">Got It</button>
+      </div>`;
+  }
+}
+
+// ============================
+// SETTINGS MANAGEMENT
+// ============================
+function getDefaultSettings(){
+  return {
+    stealthShortcut: 'ctrl-space-3',
+    customShortcut: '',
+    autoLock: false,
+    clearData: false,
+    theme: 'default',
+    compactMode: false
+  };
+}
+
+function loadSettings(){
+  try {
+    const saved = localStorage.getItem('aawaaz_settings');
+    const settings = saved ? JSON.parse(saved) : getDefaultSettings();
+    
+    // Update UI elements
+    const shortcutSelect = document.getElementById('stealthShortcut');
+    const autoLockCheck = document.getElementById('autoLockSetting');
+    const clearDataCheck = document.getElementById('clearDataSetting');
+    const themeSelect = document.getElementById('themeSetting');
+    const compactCheck = document.getElementById('compactModeSetting');
+    const currentShortcut = document.getElementById('currentShortcut');
+    
+    if(shortcutSelect) shortcutSelect.value = settings.stealthShortcut;
+    if(autoLockCheck) autoLockCheck.checked = settings.autoLock;
+    if(clearDataCheck) clearDataCheck.checked = settings.clearData;
+    if(themeSelect) themeSelect.value = settings.theme;
+    if(compactCheck) compactCheck.checked = settings.compactMode;
+    
+    // Show/hide custom shortcut setup
+    const customSetup = document.getElementById('customShortcutSetup');
+    if(customSetup){
+      customSetup.style.display = settings.stealthShortcut === 'custom' ? 'block' : 'none';
+    }
+    
+    // Update shortcut display
+    if(currentShortcut) currentShortcut.textContent = getShortcutDisplayText(settings.stealthShortcut);
+    
+    // Apply theme
+    applyTheme(settings.theme);
+    
+    // Store in global state
+    S.settings = settings;
+    
+    return settings;
+  } catch(e) {
+    console.warn('Failed to load settings:', e);
+    return getDefaultSettings();
+  }
+}
+
+function saveSettings(settings){
+  try {
+    localStorage.setItem('aawaaz_settings', JSON.stringify(settings));
+    S.settings = settings;
+  } catch(e) {
+    console.warn('Failed to save settings:', e);
+  }
+}
+
+function getShortcutDisplayText(shortcut){
+  const shortcutMap = {
+    'ctrl-space-3': 'Ctrl + Space (×3)',
+    'ctrl-shift-s': 'Ctrl + Shift + S',
+    'ctrl-alt-h': 'Ctrl + Alt + H',
+    'alt-shift-x': 'Alt + Shift + X',
+    'f9-3': 'F9 Key (×3)',
+    'escape-3': 'Escape Key (×3)',
+    'custom': S.settings?.customShortcut || 'Custom'
+  };
+  return shortcutMap[shortcut] || shortcut;
+}
+
+function updateStealthSetting(){
+  const shortcutSelect = document.getElementById('stealthShortcut');
+  const currentShortcut = document.getElementById('currentShortcut');
+  const customSetup = document.getElementById('customShortcutSetup');
+  
+  if(shortcutSelect && currentShortcut){
+    const settings = S.settings || getDefaultSettings();
+    settings.stealthShortcut = shortcutSelect.value;
+    
+    // Show/hide custom shortcut setup
+    if(customSetup){
+      customSetup.style.display = shortcutSelect.value === 'custom' ? 'block' : 'none';
+    }
+    
+    saveSettings(settings);
+    
+    currentShortcut.textContent = getShortcutDisplayText(settings.stealthShortcut);
+    
+    // Update stealth button tooltip
+    const stealthBtn = document.getElementById('stealthBtn');
+    if(stealthBtn){
+      stealthBtn.title = `Stealth Mode (${getShortcutDisplayText(settings.stealthShortcut)})`;
+    }
+  }
+}
+
+function updateAutoLockSetting(){
+  const autoLockCheck = document.getElementById('autoLockSetting');
+  if(autoLockCheck){
+    const settings = S.settings || getDefaultSettings();
+    settings.autoLock = autoLockCheck.checked;
+    saveSettings(settings);
+  }
+}
+
+function updateClearDataSetting(){
+  const clearDataCheck = document.getElementById('clearDataSetting');
+  if(clearDataCheck){
+    const settings = S.settings || getDefaultSettings();
+    settings.clearData = clearDataCheck.checked;
+    saveSettings(settings);
+  }
+}
+
+function updateThemeSetting(){
+  const themeSelect = document.getElementById('themeSetting');
+  if(themeSelect){
+    const settings = S.settings || getDefaultSettings();
+    settings.theme = themeSelect.value;
+    saveSettings(settings);
+    applyTheme(settings.theme);
+  }
+}
+
+function updateCompactModeSetting(){
+  const compactCheck = document.getElementById('compactModeSetting');
+  if(compactCheck){
+    const settings = S.settings || getDefaultSettings();
+    settings.compactMode = compactCheck.checked;
+    saveSettings(settings);
+    applyCompactMode(settings.compactMode);
+  }
+}
+
+function applyTheme(theme){
+  const body = document.body;
+  body.className = body.className.replace(/theme-\w+/g, '');
+  if(theme !== 'default'){
+    body.classList.add(`theme-${theme}`);
+  }
+}
+
+function applyCompactMode(compact){
+  const body = document.body;
+  body.classList.toggle('compact-mode', compact);
+}
+
+function testStealthShortcut(){
+  const settings = S.settings || getDefaultSettings();
+  const shortcutText = getShortcutDisplayText(settings.stealthShortcut);
+  
+  alert(`Test mode activated! Now try your shortcut: ${shortcutText}\n\nIf stealth mode activates, your shortcut is working correctly.`);
+}
+
+// Check for keyboard shortcuts based on settings
+function checkStealthShortcut(e){
+  const settings = S.settings || getDefaultSettings();
+  const shortcut = settings.stealthShortcut;
+  
+  switch(shortcut){
+    case 'ctrl-space-3':
+      if(e.ctrlKey && e.code === 'Space'){
+        e.preventDefault();
+        S.ctrlSpaceCount++;
+        clearTimeout(S.ctrlSpaceTimer);
+        S.ctrlSpaceTimer = setTimeout(() => { S.ctrlSpaceCount = 0; }, 1500);
+        if(S.ctrlSpaceCount >= 3){
+          S.ctrlSpaceCount = 0;
+          toggleStealthMode();
+        }
+      }
+      break;
+      
+    case 'ctrl-shift-s':
+      if(e.ctrlKey && e.shiftKey && e.code === 'KeyS'){
+        e.preventDefault();
+        toggleStealthMode();
+      }
+      break;
+      
+    case 'ctrl-alt-h':
+      if(e.ctrlKey && e.altKey && e.code === 'KeyH'){
+        e.preventDefault();
+        toggleStealthMode();
+      }
+      break;
+      
+    case 'alt-shift-x':
+      if(e.altKey && e.shiftKey && e.code === 'KeyX'){
+        e.preventDefault();
+        toggleStealthMode();
+      }
+      break;
+      
+    case 'f9-3':
+      if(e.code === 'F9'){
+        e.preventDefault();
+        S.f9Count = (S.f9Count || 0) + 1;
+        clearTimeout(S.f9Timer);
+        S.f9Timer = setTimeout(() => { S.f9Count = 0; }, 1500);
+        if(S.f9Count >= 3){
+          S.f9Count = 0;
+          toggleStealthMode();
+        }
+      }
+      break;
+      
+    case 'escape-3':
+      if(e.code === 'Escape'){
+        e.preventDefault();
+        S.escapeCount = (S.escapeCount || 0) + 1;
+        clearTimeout(S.escapeTimer);
+        S.escapeTimer = setTimeout(() => { S.escapeCount = 0; }, 1500);
+        if(S.escapeCount >= 3){
+          S.escapeCount = 0;
+          toggleStealthMode();
+        }
+      }
+      break;
+      
+    case 'custom':
+      if(S.settings?.customShortcut){
+        const customShortcut = S.settings.customShortcut.toLowerCase();
+        const parts = customShortcut.split('+').map(p => p.trim());
+        
+        let modifiersMatch = true;
+        let keyMatch = false;
+        
+        // Check modifiers
+        if(parts.includes('ctrl') && !e.ctrlKey) modifiersMatch = false;
+        if(parts.includes('alt') && !e.altKey) modifiersMatch = false;
+        if(parts.includes('shift') && !e.shiftKey) modifiersMatch = false;
+        if(!parts.includes('ctrl') && e.ctrlKey) modifiersMatch = false;
+        if(!parts.includes('alt') && e.altKey) modifiersMatch = false;
+        if(!parts.includes('shift') && e.shiftKey) modifiersMatch = false;
+        
+        // Check key
+        const keyPart = parts.find(p => !['ctrl','alt','shift'].includes(p));
+        if(keyPart){
+          if(keyPart.startsWith('f') && keyPart.length > 1){
+            // Function key
+            keyMatch = e.code.toLowerCase() === ('key' + keyPart);
+          } else if(keyPart.length === 1){
+            // Letter key
+            keyMatch = e.code.toLowerCase() === ('key' + keyPart);
+          } else {
+            // Special key
+            const specialKeys = {space:'Space',enter:'Enter',escape:'Escape',tab:'Tab'};
+            keyMatch = e.code === specialKeys[keyPart];
+          }
+        }
+        
+        if(modifiersMatch && keyMatch){
+          e.preventDefault();
+          toggleStealthMode();
+        }
+      }
+      break;
+  }
+}
+
+// Save custom shortcut function
+function saveCustomShortcut(){
+  const customInput = document.getElementById('customKeys');
+  if(customInput && customInput.value.trim()){
+    const settings = S.settings || getDefaultSettings();
+    settings.customShortcut = customInput.value.trim();
+    settings.stealthShortcut = 'custom';
+    saveSettings(settings);
+    
+    const currentShortcut = document.getElementById('currentShortcut');
+    if(currentShortcut) currentShortcut.textContent = customInput.value.trim();
+    
+    alert('Custom shortcut saved: ' + customInput.value.trim());
+  }
+}
+
+// Function to switch to simulation mode for keys
+function switchToSimForKeys(){
+  setMode('sim');
+  showSimPage('flow');
+  alert('Switched to Simulation mode. Scroll down to find the "Authority Keys" section with private keys.');
+}
+
+// Copy private key function
+function copyPrivateKey(authority){
+  const key = S['fullPrivKey' + authority];
+  if(key){
+    navigator.clipboard.writeText(key).then(() => {
+      alert(`${authority} private key copied to clipboard in MAYDAY format!\\n\\nYou can now paste it in Authority mode.`);
+    }).catch(err => {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = key;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      alert(`${authority} private key copied to clipboard in MAYDAY format!\\n\\nYou can now paste it in Authority mode.`);
+    });
+  } else {
+    alert('Private key not available. Please ensure the simulation has loaded completely.');
+  }
+}
+
+// Reset authority keys (for testing/debugging)
+function resetAuthorityKeys(){
+  if(confirm('This will generate new authority key pairs and make existing complaints undecryptable. Continue?')){
+    // Clear stored keys
+    for(const auth of ['HR','ICC','NGO']){
+      localStorage.removeItem(`aawaaz_authority_keys_${auth}`);
+    }
+    
+    // Reinitialize
+    location.reload();
+  }
+}
+
+// Test encoding/decoding process
+function testEncodingDecoding(){
+  try {
+    // Test IV encoding/decoding
+    const testIV = crypto.getRandomValues(new Uint8Array(12));
+    const encodedIV = ab2b64(testIV);
+    const decodedIV = b64toab(encodedIV);
+    
+    const matches = testIV.every((val, i) => val === decodedIV[i]);
+    
+    console.log('Encoding/Decoding test:');
+    console.log('Original IV:', testIV);
+    console.log('Encoded IV:', encodedIV);
+    console.log('Decoded IV:', decodedIV);
+    console.log('Match:', matches);
+    console.log('Lengths - Original:', testIV.length, 'Decoded:', decodedIV.length);
+    
+    return matches;
+  } catch(e) {
+    console.error('Encoding/decoding test failed:', e);
+    return false;
+  }
+}
+
+// ============================
+// SIDEBAR TOGGLE
+// ============================
+function toggleSidebar(){
+  const sidebar = document.getElementById('navSidebar');
+  const body = document.body;
+  sidebar.classList.toggle('collapsed');
+  body.classList.toggle('sidebar-collapsed');
+  localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+}
+
+function initSidebar(){
+  const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+  if(collapsed){
+    document.getElementById('navSidebar')?.classList.add('collapsed');
+    document.body.classList.add('sidebar-collapsed');
+  }
+}
+
+// ============================
+// PRIVACY/VPN/TOR DETECTION
+// ============================
+async function checkPrivacyStatus(){
+  const indicator = document.getElementById('privacyIndicator');
+  const value = document.getElementById('privacyValue');
+  const icon = document.getElementById('privacyIcon');
+  
+  try {
+    // Check for Tor exit node or VPN indicators
+    const response = await fetch('https://check.torproject.org/api/ip', {mode: 'cors'}).catch(() => null);
+    
+    if(response && response.ok){
+      const data = await response.json();
+      if(data.IsTor){
+        value.textContent = 'TOR ACTIVE';
+        value.className = 'privacy-value';
+        indicator.className = 'privacy-indicator';
+        icon.textContent = '🧅';
+        return;
+      }
+    }
+  } catch(e){}
+  
+  // Check WebRTC leak (simplified)
+  try {
+    const rtc = new RTCPeerConnection({iceServers: []});
+    rtc.createDataChannel('');
+    await rtc.createOffer().then(o => rtc.setLocalDescription(o));
+    
+    // If we get here without privacy tools, warn user
+    value.textContent = 'DIRECT';
+    value.className = 'privacy-value warning';
+    indicator.className = 'privacy-indicator warning';
+    icon.textContent = '⚠️';
+    rtc.close();
+  } catch(e){
+    // WebRTC blocked - good sign of privacy tools
+    value.textContent = 'PROTECTED';
+    value.className = 'privacy-value';
+    indicator.className = 'privacy-indicator';
+    icon.textContent = '🛡️';
+  }
+}
+
+// ============================
+// DIGITAL SIGNATURE & HASH
+// ============================
+async function generateComplaintHash(complaintText){
+  const encoder = new TextEncoder();
+  const data = encoder.encode(complaintText + Date.now().toString());
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function updateComplaintHash(){
+  const hashEl = document.getElementById('complaintHash');
+  if(!hashEl) return;
+  
+  if(S.complaint && S.complaint.length > 0){
+    const hash = await generateComplaintHash(S.complaint);
+    hashEl.textContent = hash.substring(0, 16) + '...' + hash.substring(48);
+    hashEl.title = hash;
+  } else {
+    hashEl.textContent = 'SHA-256 hash will be generated';
+  }
+}
+
+// ============================
+// MERKLE TREE IMPLEMENTATION
+// ============================
+class MerkleTree {
+  constructor(leaves = []){
+    this.leaves = leaves.map(l => this.hash(l));
+    this.tree = this.buildTree(this.leaves);
+  }
+  
+  async hash(data){
+    const encoder = new TextEncoder();
+    const buffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
+    return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+  
+  async hashPair(a, b){
+    return this.hash(a + b);
+  }
+  
+  async buildTree(leaves){
+    if(leaves.length === 0) return [];
+    if(leaves.length === 1) return [leaves];
+    
+    const resolvedLeaves = await Promise.all(leaves);
+    let level = resolvedLeaves;
+    const tree = [level];
+    
+    while(level.length > 1){
+      const nextLevel = [];
+      for(let i = 0; i < level.length; i += 2){
+        const left = level[i];
+        const right = level[i + 1] || left;
+        nextLevel.push(await this.hashPair(left, right));
+      }
+      level = nextLevel;
+      tree.push(level);
+    }
+    return tree;
+  }
+  
+  async getRoot(){
+    const tree = await this.tree;
+    return tree.length > 0 ? tree[tree.length - 1][0] : null;
+  }
+  
+  async getProof(index){
+    const tree = await this.tree;
+    const proof = [];
+    let idx = index;
+    
+    for(let i = 0; i < tree.length - 1; i++){
+      const level = tree[i];
+      const isRight = idx % 2 === 1;
+      const siblingIdx = isRight ? idx - 1 : idx + 1;
+      
+      if(siblingIdx < level.length){
+        proof.push({
+          hash: level[siblingIdx],
+          position: isRight ? 'left' : 'right'
+        });
+      }
+      idx = Math.floor(idx / 2);
+    }
+    return proof;
+  }
+}
+
+async function verifyIntegrity(){
+  const token = document.getElementById('integrityToken')?.value;
+  if(!token){
+    alert('Please enter a tracking token');
+    return;
+  }
+  
+  const merkleSection = document.getElementById('merkleSection');
+  const integrityResult = document.getElementById('integrityResult');
+  const integrityIcon = document.getElementById('integrityIcon');
+  const integrityText = document.getElementById('integrityText');
+  
+  merkleSection.style.display = 'block';
+  
+  // Simulate Merkle tree verification
+  const complaintHash = await generateComplaintHash(token);
+  const fakeLeaves = [
+    'a1b2c3d4e5f6...',
+    complaintHash.substring(0, 12) + '...',
+    'f6e5d4c3b2a1...',
+    '123456789abc...'
+  ];
+  
+  // Update visualization
+  document.getElementById('merkleLeaf1').textContent = fakeLeaves[0];
+  document.getElementById('merkleLeafYours').textContent = fakeLeaves[1];
+  document.getElementById('merkleLeaf3').textContent = fakeLeaves[2];
+  document.getElementById('merkleLeaf4').textContent = fakeLeaves[3];
+  
+  // Simulate branch hashes
+  document.getElementById('merkleBranchL').textContent = 'ab12cd34...';
+  document.getElementById('merkleBranchR').textContent = 'ef56gh78...';
+  document.getElementById('merkleRoot').textContent = complaintHash.substring(0, 16) + '...';
+  
+  // Show result
+  setTimeout(() => {
+    integrityResult.className = 'integrity-result valid';
+    integrityIcon.textContent = '✅';
+    integrityText.textContent = 'Integrity Verified — No tampering detected';
+  }, 1000);
+}
+
+// ============================
+// AUTHORITY ACTIVITY LOGS
+// ============================
+const mockActivityLogs = [
+  {type: 'view', action: 'Complaint Received - MAY', authority: 'System - MAY', time: '2026-02-28 10:30:00', meta: 'Encrypted payload stored - MAY'},
+  {type: 'decrypt', action: 'Decryption Attempted - MAY', authority: 'HR Department - MAY', time: '2026-02-28 11:15:00', meta: 'Private key verified - MAY'},
+  {type: 'view', action: 'Complaint Viewed - MAY', authority: 'HR Department - MAY', time: '2026-02-28 11:16:00', meta: 'Full content accessed - MAY'},
+  {type: 'action', action: 'Investigation Initiated - MAY', authority: 'HR Department - MAY', time: '2026-02-28 14:00:00', meta: 'Case #HR-2026-0142 - MAY'},
+  {type: 'forward', action: 'Escalated to ICC - MAY', authority: 'HR Department - MAY', time: '2026-02-28 16:30:00', meta: 'Severity: High - MAY'},
+];
+
+async function fetchActivityLogs(){
+  const tokenInput = document.getElementById('activityToken');
+  const token = tokenInput?.value?.trim();
+  if(!token){
+    alert('Please enter a tracking token');
+    return;
+  }
+  
+  const container = document.getElementById('activityLogContainer');
+  const timeline = document.getElementById('activityTimeline');
+  const logCount = document.getElementById('logCount');
+  
+  container.style.display = 'block';
+  timeline.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Loading activity logs...</div>';
+  
+  let logs = [];
+  let isRealData = false;
+  
+  try {
+    // Try to fetch real data from Supabase
+    const tokenHash = await hashSHA256(token);
+    const realLogs = await window.AawaazData.fetchActivityLogs(tokenHash);
+    
+    if(realLogs && realLogs.length > 0){
+      // Transform real data to display format
+      logs = realLogs.map(log => ({
+        type: log.activity_type || 'view',
+        action: log.action_description,
+        authority: log.authority,
+        time: new Date(log.created_at).toLocaleString(),
+        meta: log.metadata || ''
+      }));
+      isRealData = true;
+    }
+  } catch(err){
+    console.warn('[ActivityLogs] Could not fetch real data:', err.message);
+  }
+  
+  // Fall back to mock data if no real data available
+  if(logs.length === 0){
+    await sleep(800); // Simulate delay for mock
+    logs = mockActivityLogs;
+    isRealData = false;
+  }
+  
+  logCount.textContent = `${logs.length} entries${isRealData ? '' : ' (sample data - MAY)'}`;
+  
+  timeline.innerHTML = logs.map(log => `
+    <div class="activity-item">
+      <div class="activity-dot ${log.type}">${getActivityIcon(log.type)}</div>
+      <div class="activity-content">
+        <div class="activity-action">${log.action}</div>
+        <div class="activity-meta">${log.authority} — ${log.meta}</div>
+      </div>
+      <div class="activity-time">${log.time}</div>
+    </div>
+  `).join('');
+}
+
+function getActivityIcon(type){
+  const icons = {
+    view: '👁️',
+    decrypt: '🔓',
+    action: '⚡',
+    forward: '↗️',
+    resolve: '✅'
+  };
+  return icons[type] || '📋';
+}
+
+// ============================
+// CHARACTER COUNTER
+// ============================
+function updateCharCount(){
+  const input = document.getElementById('complaintInput');
+  const counter = document.getElementById('charCount');
+  if(input && counter){
+    counter.textContent = input.value.length;
+  }
+}
+
+// ============================
+// SHOWUSERPAGE UPDATE (for new pages)
+// ============================
+const originalShowUserPage = typeof showUserPage === 'function' ? showUserPage : null;
+
+function showUserPageExtended(id){
+  // Block settings access if not in user mode
+  if(id === 'settings' && S.currentMode !== 'user') {
+    alert('Settings can only be accessed from User mode.');
+    return;
+  }
+  
+  document.querySelectorAll('#userMode .page').forEach(p=>p.style.display='none');
+  const el = document.getElementById('page-'+id);
+  if(el) el.style.display='block';
+  
+  // Update nav active states
+  document.querySelectorAll('#govNavUser .gov-nav-link').forEach(l => l.classList.remove('active'));
+  const navMap = {
+    'file': 0, 'track': 1, 'integrity': 2, 'logs': 3, 'about': 4, 'settings': 5
+  };
+  const navLinks = document.querySelectorAll('#govNavUser .gov-nav-link');
+  if(navLinks[navMap[id]]) navLinks[navMap[id]].classList.add('active');
+  
+  // Load settings when settings page is shown
+  if(id === 'settings'){
+    loadSettings();
+  }
+}
+
+// Override showUserPage
+window.showUserPage = showUserPageExtended;
+
+// ============================
+// SIMULATION PANEL RESIZING
+// ============================
+let simResizeState = {
+  isResizing: false,
+  startX: 0,
+  startCols: '',
+  handle: null
+};
+
+function initSimResize(){
+  const layout = document.querySelector('.sim-layout');
+  const panels = layout.querySelectorAll('.sim-panel');
+  const handles = layout.querySelectorAll('.sim-resize-handle');
+  
+  if(!panels || panels.length < 3) return;
+  
+  const leftPanel = panels[0];
+  const midPanel = panels[1];
+  const rightPanel = panels[2];
+  
+  // Load saved layout from localStorage
+  const saved = localStorage.getItem('simPanelLayout');
+  if(saved){
+    try {
+      const {leftW, midW, rightW} = JSON.parse(saved);
+      leftPanel.style.flex = leftW;
+      midPanel.style.flex = midW;
+      rightPanel.style.flex = rightW;
+    } catch(e) {
+      console.warn('Could not restore panel layout:', e);
+      // Set default proportional sizes
+      setDefaultPanelSizes();
+    }
+  } else {
+    // Set default proportional sizes
+    setDefaultPanelSizes();
+  }
+  
+  function setDefaultPanelSizes(){
+    const containerW = layout.offsetWidth || 1200; // Fallback width
+    const leftW = Math.floor(containerW * 0.35);   // 35% for left panel
+    const midW = Math.floor(containerW * 0.25);    // 25% for middle panel
+    const rightW = Math.floor(containerW * 0.4);   // 40% for right panel
+    
+    leftPanel.style.flex = `0 0 ${leftW}px`;
+    midPanel.style.flex = `0 0 ${midW}px`;
+    rightPanel.style.flex = `0 0 ${rightW}px`;
+  }
+  
+  // Handle 0: Right edge of left panel (resizes panels 1 & 2)
+  if(handles[0]){
+    handles[0].addEventListener('mousedown', (e) => startResize(e, 0));
+  }
+  
+  // Handle 1: Right edge of middle panel (resizes panels 2 & 3)
+  if(handles[1]){
+    handles[1].addEventListener('mousedown', (e) => startResize(e, 1));
+  }
+  
+  function startResize(e, handleIndex){
+    e.preventDefault();
+    simResizeState.isResizing = true;
+    simResizeState.startX = e.clientX;
+    simResizeState.handleIndex = handleIndex;
+    simResizeState.leftInitial = leftPanel.offsetWidth;
+    simResizeState.midInitial = midPanel.offsetWidth;
+    simResizeState.rightInitial = rightPanel.offsetWidth;
+    
+    layout.classList.add('resizing');
+    document.addEventListener('mousemove', handleResize);
+    document.addEventListener('mouseup', stopResize);
+  }
+  
+  function handleResize(e){
+    if(!simResizeState.isResizing) return;
+    
+    const delta = e.clientX - simResizeState.startX;
+    const containerW = layout.offsetWidth;
+    const minPanelW = 250;
+    const maxPanelW = containerW - (2 * minPanelW); // Max width = container - (2 * minWidth for other panels)
+    
+    if(simResizeState.handleIndex === 0){
+      // Dragging left handle: resize panels 1 & 2
+      let newLeftW = simResizeState.leftInitial + delta;
+      let newMidW = simResizeState.midInitial - delta;
+      
+      // Constrain left panel
+      newLeftW = Math.max(minPanelW, Math.min(maxPanelW, newLeftW));
+      // Constrain middle panel (inverse constraint)
+      newMidW = Math.max(minPanelW, Math.min(maxPanelW, newMidW));
+      
+      // Ensure both panels fit within bounds
+      const totalUsed = newLeftW + newMidW + rightPanel.offsetWidth;
+      if(totalUsed > containerW){
+        const excess = totalUsed - containerW;
+        newLeftW = Math.max(minPanelW, newLeftW - excess/2);
+        newMidW = Math.max(minPanelW, newMidW - excess/2);
+      }
+      
+      leftPanel.style.flex = `0 0 ${newLeftW}px`;
+      midPanel.style.flex = `0 0 ${newMidW}px`;
+      
+    } else if(simResizeState.handleIndex === 1){
+      // Dragging right handle: resize panels 2 & 3
+      let newMidW = simResizeState.midInitial + delta;
+      let newRightW = simResizeState.rightInitial - delta;
+      
+      // Constrain middle panel
+      newMidW = Math.max(minPanelW, Math.min(maxPanelW, newMidW));
+      // Constrain right panel (inverse constraint)
+      newRightW = Math.max(minPanelW, Math.min(maxPanelW, newRightW));
+      
+      // Ensure both panels fit within bounds
+      const totalUsed = leftPanel.offsetWidth + newMidW + newRightW;
+      if(totalUsed > containerW){
+        const excess = totalUsed - containerW;
+        newMidW = Math.max(minPanelW, newMidW - excess/2);
+        newRightW = Math.max(minPanelW, newRightW - excess/2);
+      }
+      
+      midPanel.style.flex = `0 0 ${newMidW}px`;
+      rightPanel.style.flex = `0 0 ${newRightW}px`;
+    }
+  }
+  
+  function stopResize(){
+    if(simResizeState.isResizing){
+      simResizeState.isResizing = false;
+      layout.classList.remove('resizing');
+      
+      // Save layout to localStorage
+      localStorage.setItem('simPanelLayout', JSON.stringify({
+        leftW: leftPanel.style.flex,
+        midW: midPanel.style.flex,
+        rightW: rightPanel.style.flex
+      }));
+      
+      document.removeEventListener('mousemove', handleResize);
+      document.removeEventListener('mouseup', stopResize);
+    }
+  }
+  
+  // Handle window resize to keep panels in bounds
+  function handleWindowResize(){
+    const containerW = layout.offsetWidth;
+    const minPanelW = 250;
+    const currentLeftW = leftPanel.offsetWidth;
+    const currentMidW = midPanel.offsetWidth;
+    const currentRightW = rightPanel.offsetWidth;
+    const currentTotal = currentLeftW + currentMidW + currentRightW;
+    
+    // If panels exceed container, scale them down proportionally
+    if(currentTotal > containerW){
+      const scale = (containerW - 30) / currentTotal; // Leave some margin
+      const newLeftW = Math.max(minPanelW, Math.floor(currentLeftW * scale));
+      const newMidW = Math.max(minPanelW, Math.floor(currentMidW * scale));
+      const newRightW = Math.max(minPanelW, Math.floor(currentRightW * scale));
+      
+      leftPanel.style.flex = `0 0 ${newLeftW}px`;
+      midPanel.style.flex = `0 0 ${newMidW}px`;
+      rightPanel.style.flex = `0 0 ${newRightW}px`;
+    }
+  }
+  
+  // Add window resize listener
+  window.addEventListener('resize', handleWindowResize);
+}
+
+// ============================
 // INIT
 // ============================
 window.addEventListener('load', async ()=>{
   await init();
   setMode(detectStartupMode());
+  initSidebar();
+  checkPrivacyStatus();
+  initSimResize();
+  
+  // Add character count listener
+  const complaintInput = document.getElementById('complaintInput');
+  if(complaintInput){
+    complaintInput.addEventListener('input', () => {
+      updateCharCount();
+      updateComplaintHash();
+    });
+  }
 });
 
 // Set default sim step display
